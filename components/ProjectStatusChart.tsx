@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Project, ProjectStatus } from '../types';
@@ -19,12 +20,12 @@ const ProjectStatusChart: React.FC<ProjectStatusChartProps> = ({ projects }) => 
     [ProjectStatus.InProgress]: '#3B82F6', // blue-500
     [ProjectStatus.Completed]: '#10B981', // green-500
     [ProjectStatus.OnHold]: '#F97316', // orange-500
-    [ProjectStatus.NotStarted]: '#6B7280', // gray-500
+    [ProjectStatus.Pending]: '#6B7280', // gray-500
   };
 
   return (
-    <div className="bg-base-100 p-6 rounded-xl shadow-md">
-      <h3 className="text-lg font-bold text-base-content">Project Status Distribution</h3>
+    <div className="bg-base-100 p-6 rounded-xl shadow-md dark:bg-gray-800">
+      <h3 className="text-lg font-bold text-base-content dark:text-white">Project Status Distribution</h3>
       <div style={{ width: '100%', height: 300 }} className="mt-4">
         <ResponsiveContainer>
           <PieChart>
@@ -44,14 +45,16 @@ const ProjectStatusChart: React.FC<ProjectStatusChartProps> = ({ projects }) => 
               ))}
             </Pie>
             <Tooltip
+                cursor={{ fill: 'rgba(200,200,200,0.1)' }}
                 contentStyle={{ 
                     backgroundColor: 'rgba(255, 255, 255, 0.8)',
                     backdropFilter: 'blur(5px)',
                     border: '1px solid #E5E7EB',
                     borderRadius: '0.5rem',
                 }}
+                wrapperClassName="dark:[&_.recharts-tooltip-item]:!text-white dark:[&_.recharts-tooltip-label]:!text-white dark:!bg-gray-700/80 dark:!border-gray-600"
             />
-            <Legend iconType="circle" />
+            <Legend iconType="circle" wrapperStyle={{color: '#FFFFFF'}} />
           </PieChart>
         </ResponsiveContainer>
       </div>

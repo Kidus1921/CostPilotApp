@@ -1,32 +1,44 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { Project, ProjectStatus, Priority, User, Activity, TaskStatus } from '../types';
+import { collection, onSnapshot, query } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
+import { Project, ProjectStatus, User, Activity, TaskStatus, UserRole, UserStatus as AppUserStatus } from '../types';
 import ProjectOverviewCard from './ProjectOverviewCard';
 import FinancialSummaryCard from './FinancialSummaryCard';
 import UpcomingDeadlines from './UpcomingDeadlines';
 import ProjectStatusChart from './ProjectStatusChart';
-import RecentActivity from './RecentActivity';
 import { CheckCircleIcon, ClockIcon, FolderIcon } from './IconComponents';
-import { mockProjects as allMockProjects, mockActivities } from './ProjectsPage'; // Import centralized data
+
 
 const Dashboard: React.FC<{setActivePage: (page: string) => void}> = ({setActivePage}) => {
     const [projects, setProjects] = useState<Project[]>([]);
+    const [loading, setLoading] = useState(true);
     
     useEffect(() => {
-        // Simulate fetching data, now calculating dynamic values
-        const processedProjects = allMockProjects.map(p => {
-            // If project is completed, trust the hardcoded values. This preserves 100% progress and historic spending.
-            if (p.status === ProjectStatus.Completed) {
-                return p;
-            }
-            // For other projects, calculate dynamically.
-            const completedTasks = p.tasks.filter(t => t.status === TaskStatus.Completed).length;
-            // This correctly handles the case for 0 tasks, setting percentage to 0.
-            const completionPercentage = p.tasks.length > 0 ? Math.round((completedTasks / p.tasks.length) * 100) : 0;
-            const spent = p.tasks.reduce((acc, task) => acc + (task.completionDetails?.actualCost || 0), 0);
-            return { ...p, completionPercentage, spent };
+        const q = query(collection(db, "projects"));
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const projectsData: Project[] = [];
+            querySnapshot.forEach((doc) => {
+                projectsData.push({ id: doc.id, ...doc.data() } as Project);
+            });
+
+            const processedProjects = projectsData.map(p => {
+                const tasks = p.tasks || [];
+                const spent = tasks.reduce((acc, task) => acc + (task.completionDetails?.actualCost || 0), 0);
+                
+                if (p.status === ProjectStatus.Completed) {
+                    return { ...p, completionPercentage: 100, spent };
+                }
+
+                const completedTasks = tasks.filter(t => t.status === TaskStatus.Completed).length;
+                const completionPercentage = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0;
+                return { ...p, completionPercentage, spent };
+            });
+
+            setProjects(processedProjects);
+            setLoading(false);
         });
-        setProjects(processedProjects);
+
+        return () => unsubscribe();
     }, []);
 
     const totalProjects = projects.length;
@@ -42,10 +54,15 @@ const Dashboard: React.FC<{setActivePage: (page: string) => void}> = ({setActive
     }, [projects]);
 
 
+    if (loading) {
+        return <div className="text-center p-10">Loading Dashboard...</div>;
+    }
+
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h2 className="text-3xl font-bold text-base-content">Admin Dashboard</h2>
+                <h2 className="text-3xl font-bold text-base-content dark:text-gray-100">Admin Dashboard</h2>
                 <button 
                   onClick={() => setActivePage('Projects')}
                   className="bg-brand-primary text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-teal-700 transition-colors duration-300 flex items-center">
@@ -87,9 +104,6 @@ const Dashboard: React.FC<{setActivePage: (page: string) => void}> = ({setActive
                 <div className="space-y-6">
                     <UpcomingDeadlines projects={projects} />
                 </div>
-            </div>
-             <div className="grid grid-cols-1">
-                <RecentActivity activities={mockActivities} />
             </div>
         </div>
     );

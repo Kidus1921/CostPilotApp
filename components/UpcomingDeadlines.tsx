@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Project } from '../types';
 import { ClockIcon } from './IconComponents';
@@ -27,8 +28,8 @@ const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({ projects }) => {
     .slice(0, 5);
 
   return (
-    <div className="bg-base-100 p-6 rounded-xl shadow-md h-full">
-      <h3 className="text-lg font-bold text-base-content flex items-center">
+    <div className="bg-base-100 p-6 rounded-xl shadow-md h-full dark:bg-gray-800">
+      <h3 className="text-lg font-bold text-base-content flex items-center dark:text-white">
         <ClockIcon className="w-6 h-6 mr-2 text-brand-primary"/>
         Upcoming Deadlines
       </h3>
@@ -37,8 +38,8 @@ const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({ projects }) => {
           upcomingProjects.map(project => (
             <div key={project.id} className="flex items-center justify-between">
               <div>
-                <p className="font-semibold text-base-content">{project.title}</p>
-                <p className="text-sm text-base-content-secondary">{new Date(project.endDate).toLocaleDateString()}</p>
+                <p className="font-semibold text-base-content dark:text-gray-100">{project.title}</p>
+                <p className="text-sm text-base-content-secondary dark:text-gray-400">{new Date(project.endDate).toLocaleDateString()}</p>
               </div>
               <div className={`text-sm font-bold ${project.deadlineInfo.color}`}>
                 {project.deadlineInfo.text}
@@ -46,7 +47,7 @@ const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({ projects }) => {
             </div>
           ))
         ) : (
-          <p className="text-base-content-secondary text-center py-4">No upcoming deadlines.</p>
+          <p className="text-base-content-secondary text-center py-4 dark:text-gray-400">No upcoming deadlines.</p>
         )}
       </div>
     </div>

@@ -11,7 +11,10 @@
   "dependencies": {
     "recharts": "^3.4.1",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "firebase": "^12.6.0",
+    "jspdf": "^3.0.3",
+    "html2canvas": "^1.4.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
