@@ -129,6 +129,7 @@ const NotificationSettingsTab: React.FC = () => {
                  if (!result.success) {
                      // Revert if user cancels or fails
                      // alert(result.message);
+                     console.warn(result.message);
                  }
              } catch (e) {
                  console.error(e);
@@ -159,24 +160,48 @@ const NotificationSettingsTab: React.FC = () => {
         setSendPulseCredentials(clientId, clientSecret);
     };
     
-    const handleTestNotification = () => {
+    const handleTestNotification = async () => {
+        if (!("Notification" in window)) {
+            alert("This browser does not support desktop notification");
+            return;
+        }
+
         if (Notification.permission === "granted") {
-            new Notification("CostPilot: Test Notification", {
-                body: "If you see this, your browser notifications are working correctly!",
-                icon: "/logo192.png" // Fallback if no icon
-            });
+            try {
+                // Check if Service Worker is ready to simulate a real push
+                const registration = await navigator.serviceWorker.getRegistration();
+                
+                if (registration && registration.active) {
+                     await registration.showNotification("CostPilot", {
+                        body: "Success! Push notifications are configured correctly via Service Worker.",
+                        icon: "/logo192.png", 
+                        vibrate: [200, 100, 200],
+                        tag: 'test-notification'
+                    } as any);
+                } else {
+                    // Fallback to local notification if SW isn't ready (e.g. in some dev environments)
+                     new Notification("CostPilot", {
+                        body: "Notifications are active (Local Mode). Service Worker not detected yet.",
+                        icon: "/logo192.png"
+                    });
+                }
+            } catch (e) {
+                console.error("Test notification error:", e);
+                // Ultimate fallback
+                new Notification("CostPilot", {
+                    body: "Test notification successful.",
+                });
+            }
         } else if (Notification.permission !== "denied") {
             Notification.requestPermission().then(permission => {
                 if (permission === "granted") {
-                    new Notification("CostPilot: Test Notification", {
-                        body: "If you see this, your browser notifications are working correctly!"
+                     new Notification("CostPilot", {
+                        body: "Permissions granted! You can now receive notifications.",
                     });
-                } else {
-                    alert("Permission denied. Please enable notifications in your browser settings.");
                 }
             });
         } else {
-            alert("🚫 Notifications are blocked.\n\nTo fix this:\n1. Click the Lock icon 🔒 in your browser address bar (top left).\n2. Find 'Notifications' or 'Permissions'.\n3. Set it to 'Allow'.\n4. Refresh the page.");
+            alert("🚫 Notifications are blocked.\n\nTo enable:\n1. Click the Lock icon 🔒 in the address bar.\n2. Go to Site Settings > Permissions.\n3. Allow Notifications.");
         }
     };
 
@@ -253,13 +278,14 @@ const NotificationSettingsTab: React.FC = () => {
                         <h4 className="font-bold text-indigo-900 dark:text-indigo-200">Browser Push Notifications</h4>
                         <p className="text-sm text-indigo-700 dark:text-indigo-300 mb-2">Receive instant alerts via SendPulse.</p>
                         <div className="flex gap-2 items-center">
-                            {/* REQUIRED SendPulse Link - Changed to button to avoid navigation 404s */}
-                            <button 
-                                type="button"
-                                className="sp_notify_prompt text-xs font-bold bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition-colors inline-block shadow-sm"
+                            {/* REQUIRED SendPulse Link - Using 'a' tag with preventDefault to satisfy SendPulse script requirements without navigating */}
+                            <a 
+                                href="#"
+                                className="sp_notify_prompt text-xs font-bold bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition-colors inline-block shadow-sm no-underline"
+                                onClick={(e) => e.preventDefault()}
                             >
                                 Activate notifications
-                            </button>
+                            </a>
                             <button 
                                 onClick={handleTestNotification}
                                 className="text-xs bg-white border border-indigo-200 text-indigo-800 px-3 py-2 rounded hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-indigo-100 dark:hover:bg-gray-600 transition-colors"
@@ -405,4 +431,3 @@ const NotificationSettingsTab: React.FC = () => {
 };
 
 export default NotificationSettingsTab;
-    
