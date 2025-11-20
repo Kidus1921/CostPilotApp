@@ -174,15 +174,16 @@ const NotificationSettingsTab: React.FC = () => {
                 if (registration && registration.active) {
                      await registration.showNotification("CostPilot", {
                         body: "Success! Push notifications are configured correctly via Service Worker.",
-                        icon: "/logo192.png", 
+                        // icon: "/logo192.png", // Removed to prevent 404
                         vibrate: [200, 100, 200],
-                        tag: 'test-notification'
+                        tag: 'test-notification',
+                        requireInteraction: true
                     } as any);
                 } else {
                     // Fallback to local notification if SW isn't ready (e.g. in some dev environments)
                      new Notification("CostPilot", {
                         body: "Notifications are active (Local Mode). Service Worker not detected yet.",
-                        icon: "/logo192.png"
+                        // icon: "/logo192.png" // Removed to prevent 404
                     });
                 }
             } catch (e) {
