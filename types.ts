@@ -1,3 +1,4 @@
+
 export enum ProjectStatus {
   Pending = 'Pending',
   InProgress = 'In Progress',
@@ -37,6 +38,7 @@ export interface UserNotificationPreferences {
     };
     priorityThreshold: NotificationPriority;
     projectSubscriptions: string[]; // Array of project IDs
+    pushEnabled?: boolean;
 }
 
 
@@ -205,4 +207,13 @@ export interface Notification {
     isRead: boolean;
     timestamp: any; // Firestore ServerTimestamp
     link?: string; // e.g., `/projects/projectId`
+}
+
+// Brevo Push
+export interface PushSubscriber {
+    userId: string;
+    subscriberId: string; // Brevo ID or Token
+    browser: string;
+    createdAt: any;
+    isEnabled: boolean;
 }

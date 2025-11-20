@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { SearchIcon, BellIcon, SunIcon, MoonIcon } from './IconComponents';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
@@ -51,6 +52,8 @@ const Header: React.FC<HeaderProps> = ({ theme, toggleTheme, setActivePage, curr
       });
 
       setNotifications(notifs);
+    }, (err) => {
+        console.error("Error fetching notifications for header:", err);
     });
 
     return () => unsubscribe();

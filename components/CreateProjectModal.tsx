@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-// FIX: Removed unused 'Priority' import as it does not exist in types.ts
-import { ProjectStatus, User } from '../types';
+import { User } from '../types';
 
 export interface NewProjectData {
     title: string;

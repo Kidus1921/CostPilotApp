@@ -95,6 +95,7 @@ const MultiSelectDropdown: React.FC<{
 const FinancialReportsTab: React.FC = () => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     // Filter states
     const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
@@ -105,6 +106,7 @@ const FinancialReportsTab: React.FC = () => {
     useEffect(() => {
         const q = query(collection(db, "projects"));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            setError(null);
             const projectsData: Project[] = [];
             querySnapshot.forEach((doc) => {
                 const data = doc.data() as Omit<Project, 'id' | 'spent'>;
@@ -112,6 +114,10 @@ const FinancialReportsTab: React.FC = () => {
                 projectsData.push({ id: doc.id, ...data, spent });
             });
             setProjects(projectsData);
+            setLoading(false);
+        }, (err) => {
+            console.error("Financial reports fetch error:", err);
+            setError("Could not load financial report data.");
             setLoading(false);
         });
         return () => unsubscribe();
@@ -192,6 +198,15 @@ const FinancialReportsTab: React.FC = () => {
 
     if (loading) return <div>Loading reports...</div>;
 
+    if (error) {
+        return (
+            <div className="p-6 text-center text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800/50">
+                <h3 className="text-lg font-bold">An Error Occurred</h3>
+                <p className="mt-2">{error}</p>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
@@ -247,10 +262,8 @@ const FinancialReportsTab: React.FC = () => {
                             <AreaChart data={reportData.spendingOverTime} margin={{ top: 20, right: 20, left: 20, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
                                 <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#9CA3AF' }} />
-                                {/* FIX: Added explicit type 'any' to the 'val' parameter in tickFormatter to resolve TypeScript error. */}
-                                <YAxis tickFormatter={(val: any) => `$${Number(val)/1000}k`} tick={{ fill: '#9CA3AF' }}/>
-                                {/* FIX: Added explicit type 'number' to the 'value' parameter in formatter to resolve TypeScript error. */}
-                                <Tooltip wrapperClassName="dark:!bg-gray-700/80 dark:!border-gray-600" formatter={(value: number) => formatCurrency(value as number)} />
+                                <YAxis tickFormatter={(val: string | number) => `$${Number(val)/1000}k`} tick={{ fill: '#9CA3AF' }}/>
+                                <Tooltip wrapperClassName="dark:!bg-gray-700/80 dark:!border-gray-600" formatter={(value: string | number) => formatCurrency(Number(value))} />
                                 <Area type="monotone" dataKey="cost" stroke="#0D9488" fill="#0D9488" fillOpacity={0.2} />
                             </AreaChart>
                         </ResponsiveContainer>
@@ -263,8 +276,7 @@ const FinancialReportsTab: React.FC = () => {
                                     {reportData.categoryBreakdown.map((entry, index) => <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />)}
                                 </Pie>
                                 <Legend iconType="circle" />
-                                {/* FIX: Added explicit type 'number' to the 'value' parameter in formatter to resolve TypeScript error. */}
-                                <Tooltip wrapperClassName="dark:!bg-gray-700/80 dark:!border-gray-600" formatter={(value: number) => formatCurrency(value as number)} />
+                                <Tooltip wrapperClassName="dark:!bg-gray-700/80 dark:!border-gray-600" formatter={(value: string | number) => formatCurrency(Number(value))} />
                             </PieChart>
                         </ResponsiveContainer>
                     </div>

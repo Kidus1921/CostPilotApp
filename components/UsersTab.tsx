@@ -29,6 +29,7 @@ const UsersTab: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [teams, setTeams] = useState<Team[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
 
@@ -36,6 +37,15 @@ const UsersTab: React.FC = () => {
     const teamsCollectionRef = collection(db, 'teams');
 
     useEffect(() => {
+        let usersLoaded = false;
+        let teamsLoaded = false;
+
+        const checkLoading = () => {
+            if (usersLoaded && teamsLoaded) {
+                setLoading(false);
+            }
+        };
+
         const qUsers = query(usersCollectionRef);
         const unsubscribeUsers = onSnapshot(qUsers, (querySnapshot) => {
             const usersData: User[] = [];
@@ -43,7 +53,15 @@ const UsersTab: React.FC = () => {
                 usersData.push({ ...doc.data(), id: doc.id } as User);
             });
             setUsers(usersData);
-            if (loading) setLoading(false);
+            if (!usersLoaded) {
+                usersLoaded = true;
+                checkLoading();
+            }
+            setError(null);
+        }, (err) => {
+            console.error("Failed to fetch users:", err);
+            setError("Could not load user data.");
+            setLoading(false);
         });
 
         const qTeams = query(teamsCollectionRef);
@@ -51,6 +69,15 @@ const UsersTab: React.FC = () => {
             const teamsData: Team[] = [];
             snapshot.forEach(doc => teamsData.push({ id: doc.id, ...doc.data() } as Team));
             setTeams(teamsData);
+            if (!teamsLoaded) {
+                teamsLoaded = true;
+                checkLoading();
+            }
+            setError(null);
+        }, (err) => {
+            console.error("Failed to fetch teams:", err);
+            setError("Could not load team data.");
+            setLoading(false);
         });
 
         return () => {
@@ -120,6 +147,15 @@ const UsersTab: React.FC = () => {
     };
     
     if (loading) return <div>Loading users...</div>;
+
+    if (error) {
+        return (
+            <div className="p-6 text-center text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800/50">
+                <h3 className="text-lg font-bold">An Error Occurred</h3>
+                <p className="mt-2">{error}</p>
+            </div>
+        );
+    }
 
     return (
         <div>

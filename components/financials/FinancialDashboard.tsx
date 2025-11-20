@@ -9,10 +9,12 @@ import FinancialSummaryCard from './FinancialSummaryCard';
 const FinancialDashboard: React.FC = () => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const q = query(collection(db, "projects"));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            setError(null);
             const projectsData: Project[] = [];
             querySnapshot.forEach((doc) => {
                 const data = doc.data() as Omit<Project, 'id' | 'spent'>;
@@ -20,6 +22,10 @@ const FinancialDashboard: React.FC = () => {
                 projectsData.push({ id: doc.id, ...data, spent });
             });
             setProjects(projectsData);
+            setLoading(false);
+        }, (err) => {
+            console.error("Financial dashboard fetch error:", err);
+            setError("Could not load financial overview data.");
             setLoading(false);
         });
 
@@ -45,6 +51,15 @@ const FinancialDashboard: React.FC = () => {
 
     if (loading) {
         return <div className="text-center p-10">Loading Financial Dashboard...</div>;
+    }
+
+    if (error) {
+        return (
+            <div className="p-6 text-center text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800/50">
+                <h3 className="text-lg font-bold">An Error Occurred</h3>
+                <p className="mt-2">{error}</p>
+            </div>
+        );
     }
 
     return (

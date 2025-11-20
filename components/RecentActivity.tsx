@@ -36,15 +36,21 @@ const ActivityIcon: React.FC<{ type: ActivityDisplayType }> = ({ type }) => {
 const RecentActivity: React.FC = () => {
     const [activities, setActivities] = useState<Activity[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const q = query(collection(db, 'activities'), orderBy('timestamp', 'desc'), limit(20));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            setError(null);
             const activitiesData: Activity[] = [];
             querySnapshot.forEach((doc) => {
                 activitiesData.push({ id: doc.id, ...doc.data() } as Activity);
             });
             setActivities(activitiesData);
+            setLoading(false);
+        }, (err) => {
+            console.error("Failed to fetch recent activity:", err);
+            setError("Could not load activity feed.");
             setLoading(false);
         });
         return () => unsubscribe();
@@ -57,6 +63,10 @@ const RecentActivity: React.FC = () => {
 
     if (loading) {
         return <div className="text-center p-4">Loading Activity...</div>;
+    }
+
+    if (error) {
+        return <div className="p-4 text-center text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg">{error}</div>;
     }
 
     return (

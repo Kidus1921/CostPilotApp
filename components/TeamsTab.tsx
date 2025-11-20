@@ -10,6 +10,7 @@ const TeamsTab: React.FC = () => {
     const [teams, setTeams] = useState<Team[]>([]);
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTeam, setEditingTeam] = useState<Team | null>(null);
 
@@ -17,6 +18,15 @@ const TeamsTab: React.FC = () => {
     const usersCollectionRef = collection(db, 'users');
 
     useEffect(() => {
+        let teamsLoaded = false;
+        let usersLoaded = false;
+
+        const checkLoading = () => {
+            if (teamsLoaded && usersLoaded) {
+                setLoading(false);
+            }
+        };
+
         const qTeams = query(teamsCollectionRef);
         const unsubscribeTeams = onSnapshot(qTeams, (querySnapshot) => {
             const teamsData: Team[] = [];
@@ -24,7 +34,15 @@ const TeamsTab: React.FC = () => {
                 teamsData.push({ ...doc.data(), id: doc.id } as Team);
             });
             setTeams(teamsData);
-            if(loading) setLoading(false);
+            if (!teamsLoaded) {
+                teamsLoaded = true;
+                checkLoading();
+            }
+            setError(null);
+        }, (err) => {
+            console.error("Failed to fetch teams:", err);
+            setError("Could not load team data.");
+            setLoading(false);
         });
 
         const qUsers = query(usersCollectionRef);
@@ -34,6 +52,15 @@ const TeamsTab: React.FC = () => {
                 usersData.push({ ...doc.data(), id: doc.id } as User);
             });
             setAllUsers(usersData);
+            if (!usersLoaded) {
+                usersLoaded = true;
+                checkLoading();
+            }
+            setError(null);
+        }, (err) => {
+            console.error("Failed to fetch users:", err);
+            setError("Could not load user data.");
+            setLoading(false);
         });
 
         return () => {
@@ -73,6 +100,15 @@ const TeamsTab: React.FC = () => {
     };
 
     if (loading) return <div>Loading teams...</div>;
+
+    if (error) {
+        return (
+            <div className="p-6 text-center text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800/50">
+                <h3 className="text-lg font-bold">An Error Occurred</h3>
+                <p className="mt-2">{error}</p>
+            </div>
+        );
+    }
 
     return (
         <div>

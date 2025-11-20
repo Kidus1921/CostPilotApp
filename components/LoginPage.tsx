@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { FolderIcon } from './IconComponents';
 
@@ -6,8 +7,8 @@ interface LoginPageProps {
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
-    const [email, setEmail] = useState('alice@example.com'); // Pre-fill for convenience
-    const [password, setPassword] = useState('password123'); // Pre-fill for convenience
+    const [email, setEmail] = useState(''); 
+    const [password, setPassword] = useState(''); 
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -49,8 +50,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="relative block w-full appearance-none rounded-md border border-gray-300 px-3 py-3 text-gray-900 placeholder-gray-500 focus:z-10 focus:border-brand-primary focus:outline-none focus:ring-brand-primary sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-                                placeholder="Email address"
+                                className="relative block w-full appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-400 focus:z-10 focus:border-brand-primary focus:outline-none focus:ring-brand-primary sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 transition-colors"
+                                placeholder="alice@example.com"
                             />
                         </div>
                         <div>
@@ -63,8 +64,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="relative block w-full appearance-none rounded-md border border-gray-300 px-3 py-3 text-gray-900 placeholder-gray-500 focus:z-10 focus:border-brand-primary focus:outline-none focus:ring-brand-primary sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-                                placeholder="Password"
+                                className="relative block w-full appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-400 focus:z-10 focus:border-brand-primary focus:outline-none focus:ring-brand-primary sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 transition-colors"
+                                placeholder="password123"
                             />
                         </div>
                     </div>
@@ -89,3 +90,4 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 };
 
 export default LoginPage;
+    

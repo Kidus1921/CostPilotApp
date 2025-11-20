@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import UserManagementPage from './UserManagementPage';
 import RecentActivity from './RecentActivity';
 import NotificationSettingsTab from './settings/NotificationSettingsTab';
@@ -11,10 +12,18 @@ type Tab = 'Profile' | 'User Management' | 'Activity Log' | 'Notifications';
 interface SettingsPageProps {
     currentUser: User;
     onUserUpdate: (updatedUser: User) => void;
+    initialTab?: string;
 }
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ currentUser, onUserUpdate }) => {
-    const [activeTab, setActiveTab] = useState<Tab>('Profile');
+const SettingsPage: React.FC<SettingsPageProps> = ({ currentUser, onUserUpdate, initialTab }) => {
+    const [activeTab, setActiveTab] = useState<string>('Profile');
+
+    // Sync state if initialTab prop changes
+    useEffect(() => {
+        if (initialTab) {
+            setActiveTab(initialTab);
+        }
+    }, [initialTab]);
 
     const renderTabContent = () => {
         switch (activeTab) {
@@ -27,7 +36,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ currentUser, onUserUpdate }
             case 'Notifications':
                 return <NotificationSettingsTab />;
             default:
-                return null;
+                return <ProfileSettingsTab currentUser={currentUser} onUserUpdate={onUserUpdate} />;
         }
     };
 

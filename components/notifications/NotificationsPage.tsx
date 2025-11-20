@@ -1,10 +1,10 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-// FIX: Import 'doc' from 'firebase/firestore' to resolve 'Cannot find name 'doc'' error.
 import { collection, query, where, onSnapshot, orderBy, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { Notification, NotificationPriority, NotificationType } from '../../types';
 import { createNotification, deleteNotification, markNotificationAsRead } from '../../services/notificationService';
-import { BellIcon, CheckCircleIcon, FinanceIcon, FolderIcon, TrashIcon } from '../IconComponents';
+import { BellIcon, CheckCircleIcon, FinanceIcon, FolderIcon, TrashIcon, SettingsIcon } from '../IconComponents';
 
 const timeSince = (date: Date): string => {
     const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
@@ -43,10 +43,14 @@ const PriorityBadge: React.FC<{ priority: NotificationPriority }> = ({ priority 
     return <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${colorMap[priority]}`}>{priority}</span>;
 }
 
+interface NotificationsPageProps {
+    onOpenSettings?: () => void;
+}
 
-const NotificationsPage: React.FC = () => {
+const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenSettings }) => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [filterType, setFilterType] = useState<NotificationType | 'All'>('All');
     const [filterPriority, setFilterPriority] = useState<NotificationPriority | 'All'>('All');
     const [filterRead, setFilterRead] = useState<'All' | 'Read' | 'Unread'>('All');
@@ -59,13 +63,13 @@ const NotificationsPage: React.FC = () => {
         const q = query(
             collection(db, 'notifications'),
             where('userId', '==', currentUserId)
-            // orderBy('timestamp', 'desc') // Removed to prevent index error. Sorting is now done on the client.
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
+            setError(null);
             const notifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
             
-            // Sort on the client-side to avoid needing a composite index in Firestore
+            // Sort on the client-side
             notifs.sort((a, b) => {
                 if (a.timestamp && b.timestamp) {
                     return b.timestamp.toMillis() - a.timestamp.toMillis();
@@ -74,6 +78,10 @@ const NotificationsPage: React.FC = () => {
             });
             
             setNotifications(notifs);
+            setLoading(false);
+        }, (err) => {
+            console.error("Notifications page fetch error:", err);
+            setError("Could not load notifications.");
             setLoading(false);
         });
 
@@ -100,12 +108,11 @@ const NotificationsPage: React.FC = () => {
     };
     
     const handleCreateCustomNotification = () => {
-        // This is a placeholder for an admin feature to broadcast messages
         const title = prompt("Enter notification title:");
         const message = prompt("Enter notification message:");
         if (title && message) {
             createNotification({
-                userId: currentUserId, // Or target specific users
+                userId: currentUserId,
                 title,
                 message,
                 type: NotificationType.System,
@@ -116,11 +123,29 @@ const NotificationsPage: React.FC = () => {
 
     if (loading) return <div>Loading notifications...</div>;
 
+    if (error) {
+        return (
+            <div className="p-6 text-center text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800/50">
+                <h3 className="text-lg font-bold">An Error Occurred</h3>
+                <p className="mt-2">{error}</p>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <h2 className="text-3xl font-bold text-base-content dark:text-gray-100">Notifications</h2>
                 <div className="flex gap-2">
+                    {/* Settings Button */}
+                    <button 
+                        onClick={onOpenSettings}
+                        className="bg-base-100 text-base-content font-bold py-2 px-4 rounded-lg shadow-md border border-gray-200 hover:bg-base-200 dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700 flex items-center gap-2"
+                        title="Notification Settings"
+                    >
+                        <SettingsIcon className="w-5 h-5" /> 
+                        <span className="hidden sm:inline">Settings</span>
+                    </button>
                      <button onClick={handleCreateCustomNotification} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700">
                         Create Custom
                     </button>
@@ -129,11 +154,7 @@ const NotificationsPage: React.FC = () => {
                     </button>
                 </div>
             </div>
-            {/* Filters */}
-            <div className="bg-base-100 p-4 rounded-xl shadow-md dark:bg-gray-800 flex flex-wrap gap-4">
-                {/* Filter controls here */}
-            </div>
-
+            
             {/* Notification List */}
             <div className="bg-base-100 rounded-xl shadow-md dark:bg-gray-800 overflow-hidden">
                 <ul className="divide-y divide-base-200 dark:divide-gray-700">

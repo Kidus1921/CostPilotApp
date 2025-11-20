@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from 'react';
-// FIX: Removed unused 'Priority' import as it does not exist in types.ts
-import { User, Task } from '../types';
+import React, { useState } from 'react';
 
 export interface NewTaskData {
     name: string;

@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -10,20 +8,62 @@ import ReportsPage from './components/ReportsPage';
 import SettingsPage from './components/SettingsPage';
 import FinancialsPage from './components/financials/FinancialsPage';
 import NotificationsPage from './components/notifications/NotificationsPage';
-import { User, UserRole } from './types';
+import { User, UserRole, UserStatus, UserNotificationPreferences } from './types';
 import LoginPage from './components/LoginPage';
 import { db } from './firebaseConfig';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import { initSendPulse } from './services/sendPulseService';
 
 const App: React.FC = () => {
   const [activePage, setActivePage] = useState('Dashboard');
+  const [settingsTab, setSettingsTab] = useState('Profile'); // State to control Settings sub-tab
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
   });
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loadingAuth, setLoadingAuth] = useState(true); // To prevent flash of login page
+  const [loadingAuth, setLoadingAuth] = useState(true);
 
-  // Simple session persistence using localStorage
+  // Helper to sanitize user object from Firestore to ensure JSON safety
+  const sanitizeUser = (data: any, id: string): User => {
+      let teamId = data.teamId;
+      if (typeof teamId === 'object' && teamId !== null && 'id' in teamId) {
+          teamId = teamId.id;
+      }
+
+      const sanitized: User = {
+          id: id,
+          name: data.name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          role: data.role || UserRole.ProjectManager,
+          status: data.status || UserStatus.Active,
+          teamId: typeof teamId === 'string' ? teamId : undefined,
+          password: data.password,
+      };
+
+      if (data.notificationPreferences) {
+          let projectSubscriptions: string[] = [];
+          if (Array.isArray(data.notificationPreferences.projectSubscriptions)) {
+              projectSubscriptions = data.notificationPreferences.projectSubscriptions.map((sub: any) => {
+                  if (typeof sub === 'object' && sub !== null && 'id' in sub) {
+                      return sub.id;
+                  }
+                  return String(sub);
+              });
+          }
+
+          sanitized.notificationPreferences = {
+             inApp: { ...data.notificationPreferences.inApp },
+             email: { ...data.notificationPreferences.email },
+             priorityThreshold: data.notificationPreferences.priorityThreshold,
+             projectSubscriptions: projectSubscriptions,
+             pushEnabled: data.notificationPreferences.pushEnabled
+          };
+      }
+
+      return sanitized;
+  };
+
   useEffect(() => {
     try {
       const loggedInUser = localStorage.getItem('costpilotUser');
@@ -38,6 +78,12 @@ const App: React.FC = () => {
     setLoadingAuth(false);
   }, []);
 
+  // Initialize SendPulse with User ID when user is logged in
+  useEffect(() => {
+    if (currentUser?.id) {
+        initSendPulse(currentUser.id);
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -53,8 +99,6 @@ const App: React.FC = () => {
   };
 
   const handleLogin = async (email: string): Promise<{ success: boolean; error?: string }> => {
-    // In a real app, you would use Firebase Auth. This is a simulation.
-    // We are not checking the password for this demo.
     try {
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('email', '==', email));
@@ -65,10 +109,10 @@ const App: React.FC = () => {
       }
 
       const userDoc = querySnapshot.docs[0];
-      const userData = { id: userDoc.id, ...userDoc.data() } as User;
+      const userData = sanitizeUser(userDoc.data(), userDoc.id);
       
       setCurrentUser(userData);
-      localStorage.setItem('costpilotUser', JSON.stringify(userData)); // Persist session
+      localStorage.setItem('costpilotUser', JSON.stringify(userData));
       return { success: true };
     } catch (error) {
       console.error("Login error:", error);
@@ -78,8 +122,8 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setCurrentUser(null);
-    localStorage.removeItem('costpilotUser'); // Clear session
-    setActivePage('Dashboard'); // Reset to default page on logout
+    localStorage.removeItem('costpilotUser');
+    setActivePage('Dashboard');
   };
 
   const handleUserUpdate = (updatedUser: User) => {
@@ -105,9 +149,13 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSetPage = (page: string) => {
+  // Updated handleSetPage to accept a subTab for deep linking (e.g. Settings -> Notifications)
+  const handleSetPage = (page: string, subTab?: string) => {
     if (currentUser && hasAccess(page, currentUser.role)) {
         setActivePage(page);
+        if (page === 'Settings') {
+            setSettingsTab(subTab || 'Profile');
+        }
     }
   };
 
@@ -127,9 +175,11 @@ const App: React.FC = () => {
       case 'Financials':
         return <FinancialsPage />;
       case 'Notifications':
-        return <NotificationsPage />;
+        // Pass navigation handler to allow linking to Settings
+        return <NotificationsPage onOpenSettings={() => handleSetPage('Settings', 'Notifications')} />;
       case 'Settings':
-        return <SettingsPage currentUser={currentUser} onUserUpdate={handleUserUpdate}/>;
+        // Pass the active tab state
+        return <SettingsPage currentUser={currentUser} onUserUpdate={handleUserUpdate} initialTab={settingsTab}/>;
       default:
         return <Dashboard setActivePage={handleSetPage} />;
     }

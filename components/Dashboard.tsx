@@ -12,10 +12,12 @@ import { CheckCircleIcon, ClockIcon, FolderIcon } from './IconComponents';
 const Dashboard: React.FC<{setActivePage: (page: string) => void}> = ({setActivePage}) => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     
     useEffect(() => {
         const q = query(collection(db, "projects"));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            setError(null);
             const projectsData: Project[] = [];
             querySnapshot.forEach((doc) => {
                 projectsData.push({ id: doc.id, ...doc.data() } as Project);
@@ -35,6 +37,10 @@ const Dashboard: React.FC<{setActivePage: (page: string) => void}> = ({setActive
             });
 
             setProjects(processedProjects);
+            setLoading(false);
+        }, (err) => {
+            console.error("Dashboard data fetch error:", err);
+            setError("Failed to load dashboard data. Please check your connection and permissions.");
             setLoading(false);
         });
 
@@ -58,6 +64,14 @@ const Dashboard: React.FC<{setActivePage: (page: string) => void}> = ({setActive
         return <div className="text-center p-10">Loading Dashboard...</div>;
     }
 
+    if (error) {
+        return (
+            <div className="p-6 text-center text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800/50">
+                <h3 className="text-lg font-bold">An Error Occurred</h3>
+                <p className="mt-2">{error}</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">

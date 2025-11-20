@@ -12,16 +12,22 @@ const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', { styl
 const FinancialApprovalsTab: React.FC = () => {
     const [pendingProjects, setPendingProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [projectToReject, setProjectToReject] = useState<Project | null>(null);
 
     useEffect(() => {
         const q = query(collection(db, 'projects'), where('status', '==', ProjectStatus.Pending));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            setError(null);
             const projectsData: Project[] = [];
             querySnapshot.forEach(doc => {
                 projectsData.push({ ...doc.data(), id: doc.id } as Project);
             });
             setPendingProjects(projectsData);
+            setLoading(false);
+        }, (err) => {
+            console.error("Financial approvals fetch error:", err);
+            setError("Could not load pending approvals.");
             setLoading(false);
         });
         return () => unsubscribe();
@@ -65,6 +71,15 @@ const FinancialApprovalsTab: React.FC = () => {
 
     if (loading) {
         return <div className="text-center p-10">Loading approvals...</div>;
+    }
+
+    if (error) {
+        return (
+            <div className="p-6 text-center text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800/50">
+                <h3 className="text-lg font-bold">An Error Occurred</h3>
+                <p className="mt-2">{error}</p>
+            </div>
+        );
     }
 
     return (

@@ -487,12 +487,22 @@ const ProjectsPage: React.FC = () => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'ascending' | 'descending' } | null>({ key: 'title', direction: 'ascending' });
     
     useEffect(() => {
         seedDatabase(); // Check and seed database on initial load
+
+        let projectsLoaded = false;
+        let usersLoaded = false;
+
+        const checkLoading = () => {
+            if (projectsLoaded && usersLoaded) {
+                setLoading(false);
+            }
+        };
 
         const qProjects = query(collection(db, "projects"));
         const unsubscribeProjects = onSnapshot(qProjects, (querySnapshot) => {
@@ -501,6 +511,14 @@ const ProjectsPage: React.FC = () => {
                 projectsData.push({ id: doc.id, ...doc.data() } as Project);
             });
             setProjects(projectsData);
+            if (!projectsLoaded) {
+                projectsLoaded = true;
+                checkLoading();
+            }
+            setError(null);
+        }, (err) => {
+            console.error("Error fetching projects:", err);
+            setError("Failed to load project data.");
             setLoading(false);
         });
 
@@ -511,6 +529,15 @@ const ProjectsPage: React.FC = () => {
                 usersData.push({ id: doc.id, ...doc.data() } as User);
             });
             setUsers(usersData);
+            if (!usersLoaded) {
+                usersLoaded = true;
+                checkLoading();
+            }
+            setError(null);
+        }, (err) => {
+            console.error("Error fetching users:", err);
+            setError("Failed to load user data.");
+            setLoading(false);
         });
 
         return () => {
@@ -603,6 +630,15 @@ const ProjectsPage: React.FC = () => {
     
     if (loading) {
         return <div className="text-center p-10">Loading Projects...</div>;
+    }
+
+    if (error) {
+        return (
+            <div className="p-6 text-center text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800/50">
+                <h3 className="text-lg font-bold">An Error Occurred</h3>
+                <p className="mt-2">{error}</p>
+            </div>
+        );
     }
 
     if (selectedProjectId && selectedProject) {
