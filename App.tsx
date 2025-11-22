@@ -11,7 +11,7 @@ import NotificationsPage from './components/notifications/NotificationsPage';
 import { User, UserRole, UserStatus, UserNotificationPreferences } from './types';
 import LoginPage from './components/LoginPage';
 import { db } from './firebaseConfig';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { initSendPulse } from './services/sendPulseService';
 
 const App: React.FC = () => {
@@ -39,6 +39,7 @@ const App: React.FC = () => {
           status: data.status || UserStatus.Active,
           teamId: typeof teamId === 'string' ? teamId : undefined,
           password: data.password,
+          lastLogin: data.lastLogin,
       };
 
       if (data.notificationPreferences) {
@@ -111,6 +112,17 @@ const App: React.FC = () => {
       const userDoc = querySnapshot.docs[0];
       const userData = sanitizeUser(userDoc.data(), userDoc.id);
       
+      // Update lastLogin
+      try {
+          const now = new Date().toISOString();
+          await updateDoc(doc(db, 'users', userDoc.id), {
+              lastLogin: now
+          });
+          userData.lastLogin = now;
+      } catch (err) {
+          console.error("Failed to update last login time", err);
+      }
+      
       setCurrentUser(userData);
       localStorage.setItem('costpilotUser', JSON.stringify(userData));
       return { success: true };
@@ -134,8 +146,8 @@ const App: React.FC = () => {
 
   const hasAccess = (page: string, role: UserRole): boolean => {
     const adminPages = ['Dashboard', 'Projects', 'Reports', 'Financials', 'Notifications', 'Settings'];
-    const pmPages = ['Dashboard', 'Projects', 'Notifications'];
-    const financePages = ['Dashboard', 'Financials', 'Notifications'];
+    const pmPages = ['Dashboard', 'Projects', 'Notifications', 'Settings'];
+    const financePages = ['Dashboard', 'Financials', 'Notifications', 'Settings'];
 
     switch (role) {
         case UserRole.Admin:
@@ -169,9 +181,9 @@ const App: React.FC = () => {
       case 'Dashboard':
         return <Dashboard setActivePage={handleSetPage} />;
       case 'Projects':
-        return <ProjectsPage />;
+        return <ProjectsPage currentUser={currentUser} />;
       case 'Reports':
-        return <ReportsPage />;
+        return <ReportsPage currentUser={currentUser} />;
       case 'Financials':
         return <FinancialsPage />;
       case 'Notifications':

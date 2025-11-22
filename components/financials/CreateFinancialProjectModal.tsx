@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 
 interface CreateFinancialProjectModalProps {
@@ -36,7 +37,7 @@ const CreateFinancialProjectModal: React.FC<CreateFinancialProjectModalProps> = 
                     </div>
                     <div className="flex justify-end gap-4 pt-4">
                         <button type="button" onClick={onClose} className="bg-base-200 text-base-content font-bold py-2 px-4 rounded-lg hover:bg-base-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500">Cancel</button>
-                        <button type="submit" className="bg-brand-primary text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-teal-700">Submit for Approval</button>
+                        <button type="submit" className="bg-brand-primary text-brand-primary-content font-bold py-2 px-4 rounded-lg shadow-md hover:bg-teal-700">Submit for Approval</button>
                     </div>
                 </form>
             </div>

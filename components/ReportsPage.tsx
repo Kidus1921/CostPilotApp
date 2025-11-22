@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { Project, Task, User, ExpenseCategory, ProjectStatus } from '../types';
+import { Project, Task, User, ExpenseCategory, ProjectStatus, UserRole } from '../types';
 import { BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { exportTableToExcel, exportElementAsPDF } from '../services/exportService';
 import { FileExcelIcon, FilePdfIcon, ChevronDownIcon, XCircleIcon, SearchIcon, ArrowUpIcon, ArrowDownIcon } from './IconComponents';
@@ -123,7 +124,7 @@ const SortableHeader: React.FC<{
     );
 };
 
-const ReportsPage: React.FC = () => {
+const ReportsPage: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
@@ -138,6 +139,9 @@ const ReportsPage: React.FC = () => {
     
     // Sort state
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>(null);
+
+    // Privilege Check
+    const canExport = currentUser.role === UserRole.Admin || (currentUser.privileges?.includes('can_export_reports') ?? false);
 
     useEffect(() => {
         let projectsLoaded = false;
@@ -266,8 +270,6 @@ const ReportsPage: React.FC = () => {
     };
 
     const reportData = useMemo(() => {
-        // FIX: Ensure budget and spent are treated as numbers to prevent type errors during arithmetic operations.
-        // Data from Firestore might be string-like, leading to concatenation instead of addition.
         const totalBudget = filteredProjects.reduce((sum, p) => sum + Number(p.budget || 0), 0);
         const totalActualCost = filteredProjects.reduce((sum, p) => sum + Number(p.spent || 0), 0);
         const variance = totalBudget - totalActualCost;
@@ -288,7 +290,6 @@ const ReportsPage: React.FC = () => {
             .reduce((acc, task) => {
                 const date = formatDate(new Date(task.completionDetails!.completedAt));
                 const lastEntry = acc[acc.length - 1];
-                // Fix: Ensure arithmetic operations use numbers
                 const lastCost = lastEntry ? Number(lastEntry.cost) : 0;
                 const currentCost = Number(task.completionDetails!.actualCost);
                 const newCost = lastCost + currentCost;
@@ -302,7 +303,6 @@ const ReportsPage: React.FC = () => {
             }, [] as { date: string; cost: number }[]);
         
         const statusDistribution = filteredProjects.reduce((acc, project) => {
-            // Fix: Ensure arithmetic operations use numbers
             const currentCount = acc[project.status] || 0;
             acc[project.status] = currentCount + 1;
             return acc;
@@ -311,7 +311,6 @@ const ReportsPage: React.FC = () => {
         const userContributions = filteredTasks.reduce((acc, task) => {
             if (task.completionDetails) {
                 const userName = task.assignedTo.name;
-                // Fix: Ensure arithmetic operations use numbers
                 const currentTotal = acc[userName] || 0;
                 const taskCost = Number(task.completionDetails.actualCost);
                 acc[userName] = currentTotal + taskCost;
@@ -336,9 +335,9 @@ const ReportsPage: React.FC = () => {
         setEndDate('');
     };
 
-    const CHART_COLORS = ['#0D9488', '#F97316', '#3B82F6', '#EC4899', '#8B5CF6', '#F59E0B'];
+    const CHART_COLORS = ['#65081b', '#f3c613', '#3B82F6', '#EC4899', '#8B5CF6', '#F59E0B'];
     const STATUS_COLORS: { [key in ProjectStatus]?: string } = {
-        [ProjectStatus.InProgress]: '#3B82F6', [ProjectStatus.Completed]: '#10B981', [ProjectStatus.OnHold]: '#F97316', [ProjectStatus.Pending]: '#6B7280',
+        [ProjectStatus.InProgress]: '#3B82F6', [ProjectStatus.Completed]: '#10B981', [ProjectStatus.OnHold]: '#f3c613', [ProjectStatus.Pending]: '#6B7280',
     };
 
     if (loading) return <div className="text-center p-10">Loading Reports...</div>;
@@ -356,10 +355,12 @@ const ReportsPage: React.FC = () => {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <h2 className="text-3xl font-bold text-base-content dark:text-gray-100">Analytics Dashboard</h2>
-                <div className="flex gap-2">
-                    <button onClick={() => exportTableToExcel('detailed-report-table', 'detailed-report.xlsx')} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 flex items-center gap-2"><FileExcelIcon /> Excel</button>
-                    <button onClick={() => exportElementAsPDF('report-export-area', 'analytics-dashboard.pdf')} className="bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-red-700 flex items-center gap-2"><FilePdfIcon/> PDF</button>
-                </div>
+                {canExport && (
+                    <div className="flex gap-2">
+                        <button onClick={() => exportTableToExcel('detailed-report-table', 'detailed-report.xlsx')} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 flex items-center gap-2"><FileExcelIcon /> Excel</button>
+                        <button onClick={() => exportElementAsPDF('report-export-area', 'analytics-dashboard.pdf')} className="bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-red-700 flex items-center gap-2"><FilePdfIcon/> PDF</button>
+                    </div>
+                )}
             </div>
 
              {/* Filters */}
@@ -398,7 +399,7 @@ const ReportsPage: React.FC = () => {
                                 <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#9CA3AF' }} />
                                 <YAxis tickFormatter={(val) => `$${Number(val) / 1000}k`} tick={{ fill: '#9CA3AF' }}/>
                                 <Tooltip wrapperClassName="dark:!bg-gray-700/80 dark:!border-gray-600" formatter={(value) => formatCurrency(Number(value))} />
-                                <Area type="monotone" dataKey="cost" stroke="#0D9488" fill="#0D9488" fillOpacity={0.2} />
+                                <Area type="monotone" dataKey="cost" stroke="#65081b" fill="#65081b" fillOpacity={0.2} />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
@@ -422,7 +423,7 @@ const ReportsPage: React.FC = () => {
                                 <XAxis type="number" tickFormatter={(val) => formatCurrency(Number(val))} tick={{ fill: '#9CA3AF' }} />
                                 <YAxis type="category" dataKey="name" tick={{ fill: '#9CA3AF', width: 80 }} />
                                 <Tooltip wrapperClassName="dark:!bg-gray-700/80 dark:!border-gray-600" cursor={{fill: 'rgba(150,150,150,0.1)'}} formatter={(value) => formatCurrency(Number(value))}/>
-                                <Bar dataKey="value" fill="#F97316" />
+                                <Bar dataKey="value" fill="#f3c613" />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>

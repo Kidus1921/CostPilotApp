@@ -78,7 +78,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="group relative flex w-full justify-center rounded-md border border-transparent bg-brand-primary py-3 px-4 text-sm font-medium text-white hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2 disabled:bg-teal-400 dark:focus:ring-offset-gray-800 transition-colors"
+                            className="group relative flex w-full justify-center rounded-md border border-transparent bg-brand-primary py-3 px-4 text-sm font-medium text-brand-primary-content hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2 disabled:bg-teal-400 dark:focus:ring-offset-gray-800 transition-colors"
                         >
                             {loading ? 'Signing in...' : 'Sign in'}
                         </button>
@@ -90,4 +90,3 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 };
 
 export default LoginPage;
-    

@@ -194,7 +194,7 @@ const FinancialReportsTab: React.FC = () => {
         setEndDate('');
     };
 
-    const CATEGORY_COLORS = ['#0D9488', '#F97316', '#3B82F6', '#EC4899', '#8B5CF6', '#F59E0B'];
+    const CATEGORY_COLORS = ['#65081b', '#f3c613', '#3B82F6', '#EC4899', '#8B5CF6', '#F59E0B'];
 
     if (loading) return <div>Loading reports...</div>;
 
@@ -264,7 +264,7 @@ const FinancialReportsTab: React.FC = () => {
                                 <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#9CA3AF' }} />
                                 <YAxis tickFormatter={(val: string | number) => `$${Number(val)/1000}k`} tick={{ fill: '#9CA3AF' }}/>
                                 <Tooltip wrapperClassName="dark:!bg-gray-700/80 dark:!border-gray-600" formatter={(value: string | number) => formatCurrency(Number(value))} />
-                                <Area type="monotone" dataKey="cost" stroke="#0D9488" fill="#0D9488" fillOpacity={0.2} />
+                                <Area type="monotone" dataKey="cost" stroke="#65081b" fill="#65081b" fillOpacity={0.2} />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
@@ -284,17 +284,17 @@ const FinancialReportsTab: React.FC = () => {
             </div>
 
              <div className="bg-base-100 rounded-xl shadow-md overflow-x-auto dark:bg-gray-800">
-                 <h3 className="text-lg font-bold p-6 dark:text-white">Detailed Report</h3>
+                 <h3 className="text-lg font-bold p-6 text-gray-900 dark:text-gray-200">Detailed Report</h3>
                 <table id="financial-details-table" className="min-w-full divide-y divide-base-300 dark:divide-gray-700">
                     <thead className="bg-base-200 dark:bg-gray-700/50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-base-content-secondary uppercase tracking-wider dark:text-gray-400">Project</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-base-content-secondary uppercase tracking-wider dark:text-gray-400">Task</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-base-content-secondary uppercase tracking-wider dark:text-gray-400">Est. Cost</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-base-content-secondary uppercase tracking-wider dark:text-gray-400">Actual Cost</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-base-content-secondary uppercase tracking-wider dark:text-gray-400">Variance</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-base-content-secondary uppercase tracking-wider dark:text-gray-400">Status</th>
-                             <th className="px-6 py-3 text-left text-xs font-medium text-base-content-secondary uppercase tracking-wider dark:text-gray-400">Completed On</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200">Project</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200">Task</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200">Est. Cost</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200">Actual Cost</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200">Variance</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200">Status</th>
+                             <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200">Completed On</th>
                         </tr>
                     </thead>
                      <tbody className="bg-base-100 divide-y divide-base-200 dark:bg-gray-800 dark:divide-gray-700">
@@ -304,17 +304,17 @@ const FinancialReportsTab: React.FC = () => {
                             const variance = est - act;
                             return (
                             <tr key={task.id}>
-                                <td className="px-6 py-4 font-medium dark:text-gray-200">{task.projectName}</td>
-                                <td className="px-6 py-4 dark:text-gray-300">{task.name}</td>
-                                <td className="px-6 py-4 dark:text-gray-300">{formatCurrency(est)}</td>
-                                <td className="px-6 py-4 dark:text-gray-300">{formatCurrency(act)}</td>
-                                <td className={`px-6 py-4 font-semibold ${variance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(variance)}</td>
-                                <td className="px-6 py-4 dark:text-gray-300">{task.status}</td>
-                                <td className="px-6 py-4 dark:text-gray-300">{task.completionDetails ? formatDate(new Date(task.completionDetails.completedAt)) : 'N/A'}</td>
+                                <td className="px-6 py-4 font-medium text-gray-800 dark:text-gray-300">{task.projectName}</td>
+                                <td className="px-6 py-4 text-gray-800 dark:text-gray-300">{task.name}</td>
+                                <td className="px-6 py-4 text-gray-800 dark:text-gray-300">{formatCurrency(est)}</td>
+                                <td className="px-6 py-4 text-gray-900 dark:text-gray-200 font-medium">{formatCurrency(act)}</td>
+                                <td className={`px-6 py-4 font-semibold ${variance >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>{formatCurrency(variance)}</td>
+                                <td className="px-6 py-4 text-gray-800 dark:text-gray-300">{task.status}</td>
+                                <td className="px-6 py-4 text-gray-800 dark:text-gray-300">{task.completionDetails ? formatDate(new Date(task.completionDetails.completedAt)) : 'N/A'}</td>
                             </tr>
                         )})}
                         {filteredTasks.length === 0 && (
-                            <tr><td colSpan={7} className="text-center py-10 text-gray-500">No data matches the current filters.</td></tr>
+                            <tr><td colSpan={7} className="text-center py-10 text-gray-500 dark:text-gray-400">No data matches the current filters.</td></tr>
                         )}
                     </tbody>
                 </table>

@@ -5,7 +5,7 @@ import { db } from '../../firebaseConfig';
 import { User, UserNotificationPreferences, NotificationPriority, Project, UserRole, NotificationType } from '../../types';
 import { BellIcon, EnvelopeIcon } from '../IconComponents';
 import { subscribeToSendPulse, unsubscribeFromSendPulse, setSendPulseCredentials } from '../../services/sendPulseService';
-import { createNotification } from '../../services/notificationService';
+import { createNotification, runSystemHealthChecks } from '../../services/notificationService';
 
 const defaultPreferences: UserNotificationPreferences = {
     inApp: {
@@ -45,6 +45,8 @@ const NotificationSettingsTab: React.FC = () => {
     const [clientId, setClientId] = useState('');
     const [clientSecret, setClientSecret] = useState('');
     const [broadcastStatus, setBroadcastStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
+    
+    const [healthCheckStatus, setHealthCheckStatus] = useState<'idle' | 'running' | 'completed'>('idle');
 
     useEffect(() => {
         if (!currentUserId) return;
@@ -244,6 +246,14 @@ const NotificationSettingsTab: React.FC = () => {
         }
     };
     
+    const handleRunHealthChecks = async () => {
+        setHealthCheckStatus('running');
+        await runSystemHealthChecks();
+        setHealthCheckStatus('completed');
+        setTimeout(() => setHealthCheckStatus('idle'), 3000);
+        alert("System checks initiated. Check console for details on overdue projects and inactive users.");
+    };
+    
     if (loading) {
         return <div className="text-center p-10">Loading settings...</div>;
     }
@@ -363,58 +373,79 @@ const NotificationSettingsTab: React.FC = () => {
             
             {/* Admin Only: Manual Push Broadcast */}
             {currentUserRole === UserRole.Admin && (
-                 <div className="bg-base-100 dark:bg-gray-800 p-6 sm:p-8 rounded-xl shadow-md border-l-4 border-orange-500">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Admin: Broadcast Notification</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Send a manual alert to ALL users via In-App and SendPulse Push.</p>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">SendPulse Client ID</label>
+                 <div className="space-y-6">
+                    <div className="bg-base-100 dark:bg-gray-800 p-6 sm:p-8 rounded-xl shadow-md border-l-4 border-orange-500">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Admin: Broadcast Notification</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Send a manual alert to ALL users via In-App and SendPulse Push.</p>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">SendPulse Client ID</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="From SendPulse API Settings"
+                                    value={clientId}
+                                    onChange={e => setClientId(e.target.value)}
+                                    onBlur={handleCredentialsChange}
+                                    className="w-full px-3 py-1 text-sm border rounded-md bg-gray-50 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-300"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">SendPulse Client Secret</label>
+                                <input 
+                                    type="password" 
+                                    placeholder="From SendPulse API Settings"
+                                    value={clientSecret}
+                                    onChange={e => setClientSecret(e.target.value)}
+                                    onBlur={handleCredentialsChange}
+                                    className="w-full px-3 py-1 text-sm border rounded-md bg-gray-50 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-300"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
                             <input 
                                 type="text" 
-                                placeholder="From SendPulse API Settings"
-                                value={clientId}
-                                onChange={e => setClientId(e.target.value)}
-                                onBlur={handleCredentialsChange}
-                                className="w-full px-3 py-1 text-sm border rounded-md bg-gray-50 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-300"
+                                placeholder="Notification Title"
+                                value={broadcastTitle}
+                                onChange={e => setBroadcastTitle(e.target.value)}
+                                className="w-full px-4 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">SendPulse Client Secret</label>
-                            <input 
-                                type="password" 
-                                placeholder="From SendPulse API Settings"
-                                value={clientSecret}
-                                onChange={e => setClientSecret(e.target.value)}
-                                onBlur={handleCredentialsChange}
-                                className="w-full px-3 py-1 text-sm border rounded-md bg-gray-50 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-300"
+                            <textarea 
+                                placeholder="Notification Message"
+                                value={broadcastMessage}
+                                onChange={e => setBroadcastMessage(e.target.value)}
+                                rows={2}
+                                className="w-full px-4 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             />
+                            <button
+                                onClick={handleAdminBroadcast}
+                                disabled={broadcastStatus !== 'idle' || !broadcastTitle || !broadcastMessage}
+                                className="bg-orange-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                            >
+                                {broadcastStatus === 'sending' ? 'Sending...' : broadcastStatus === 'sent' ? 'Sent!' : 'Send Broadcast'}
+                            </button>
                         </div>
                     </div>
-
-                    <div className="space-y-4">
-                        <input 
-                            type="text" 
-                            placeholder="Notification Title"
-                            value={broadcastTitle}
-                            onChange={e => setBroadcastTitle(e.target.value)}
-                            className="w-full px-4 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        />
-                        <textarea 
-                            placeholder="Notification Message"
-                            value={broadcastMessage}
-                            onChange={e => setBroadcastMessage(e.target.value)}
-                            rows={2}
-                            className="w-full px-4 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        />
+                    
+                    {/* System Health Check Trigger */}
+                     <div className="bg-base-100 dark:bg-gray-800 p-6 sm:p-8 rounded-xl shadow-md border-l-4 border-blue-500">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Admin: System Health Check</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                            Manually trigger daily checks for:
+                            <ul className="list-disc list-inside mt-1 ml-2">
+                                <li>Projects past their due date</li>
+                                <li>Users inactive for more than 3 days</li>
+                            </ul>
+                        </p>
                         <button
-                            onClick={handleAdminBroadcast}
-                            disabled={broadcastStatus !== 'idle' || !broadcastTitle || !broadcastMessage}
-                            className="bg-orange-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                            onClick={handleRunHealthChecks}
+                            disabled={healthCheckStatus === 'running'}
+                            className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                         >
-                            {broadcastStatus === 'sending' ? 'Sending...' : broadcastStatus === 'sent' ? 'Sent!' : 'Send Broadcast'}
+                            {healthCheckStatus === 'running' ? 'Running Checks...' : healthCheckStatus === 'completed' ? 'Checks Completed' : 'Run Daily Checks Now'}
                         </button>
-                    </div>
+                     </div>
                  </div>
             )}
 
@@ -422,7 +453,7 @@ const NotificationSettingsTab: React.FC = () => {
                  <button
                     onClick={handleSave}
                     disabled={status === 'saving'}
-                    className="bg-brand-primary text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-teal-700 disabled:bg-gray-400 transition-colors"
+                    className="bg-brand-primary text-brand-primary-content font-bold py-2 px-6 rounded-lg shadow-md hover:bg-teal-700 disabled:bg-gray-400 transition-colors"
                 >
                     {status === 'saving' ? 'Saving...' : status === 'saved' ? 'Saved!' : 'Save Preferences'}
                 </button>

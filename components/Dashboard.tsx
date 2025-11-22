@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
@@ -77,11 +78,6 @@ const Dashboard: React.FC<{setActivePage: (page: string) => void}> = ({setActive
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-3xl font-bold text-base-content dark:text-gray-100">Admin Dashboard</h2>
-                <button 
-                  onClick={() => setActivePage('Projects')}
-                  className="bg-brand-primary text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-teal-700 transition-colors duration-300 flex items-center">
-                    + New Project
-                </button>
             </div>
 
             {/* Stats Cards */}

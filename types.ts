@@ -52,6 +52,8 @@ export interface User {
     password?: string;
     teamId?: string;
     notificationPreferences?: UserNotificationPreferences;
+    lastLogin?: string;
+    privileges?: string[]; // List of granular permission keys
 }
 
 export interface Expense {
@@ -111,6 +113,7 @@ export interface Project {
   expenses: Expense[];
   rejectionReason?: string;
   documents?: Document[];
+  isAccessEnabled?: boolean; // Controls visibility for non-admins
 }
 
 export interface Activity {

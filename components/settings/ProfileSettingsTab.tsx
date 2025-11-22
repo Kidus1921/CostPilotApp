@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
@@ -89,7 +90,7 @@ const ProfileSettingsTab: React.FC<ProfileSettingsTabProps> = ({ currentUser, on
                         <button
                             type="submit"
                             disabled={!isChanged || status === 'saving'}
-                            className="bg-brand-primary text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-teal-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                            className="bg-brand-primary text-brand-primary-content font-bold py-2 px-6 rounded-lg shadow-md hover:bg-teal-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                         >
                             {status === 'saving' ? 'Saving...' : status === 'saved' ? 'Saved!' : 'Save Changes'}
                         </button>

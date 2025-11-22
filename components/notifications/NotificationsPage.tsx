@@ -149,7 +149,7 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenSettings })
                      <button onClick={handleCreateCustomNotification} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700">
                         Create Custom
                     </button>
-                    <button onClick={handleMarkAllAsRead} className="bg-brand-primary text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-teal-700">
+                    <button onClick={handleMarkAllAsRead} className="bg-brand-primary text-brand-primary-content font-bold py-2 px-4 rounded-lg shadow-md hover:bg-teal-700">
                         Mark All as Read
                     </button>
                 </div>

@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { User } from '../types';
+import { Project, User } from '../types';
 
 export interface NewProjectData {
     title: string;
@@ -15,9 +16,10 @@ interface CreateProjectModalProps {
     onClose: () => void;
     onSave: (data: NewProjectData) => void;
     users: User[];
+    initialData?: Project; // Added for Edit Mode
 }
 
-const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose, onSave, users }) => {
+const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose, onSave, users, initialData }) => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -26,21 +28,34 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
     const [budget, setBudget] = useState(0);
 
     useEffect(() => {
-        if (users.length > 0 && !teamLeaderId) {
-            setTeamLeaderId(users[0].id);
+        if (isOpen) {
+            if (initialData) {
+                setTitle(initialData.title);
+                setDescription(initialData.description);
+                setEndDate(initialData.endDate);
+                setTeamLeaderId(initialData.teamLeader.id || '');
+                setTags(initialData.tags?.join(', ') || '');
+                setBudget(initialData.budget);
+            } else {
+                // Reset for Create Mode
+                setTitle('');
+                setDescription('');
+                setEndDate('');
+                if (users.length > 0) setTeamLeaderId(users[0].id!);
+                setTags('');
+                setBudget(0);
+            }
         }
-    }, [users, teamLeaderId]);
+    }, [isOpen, initialData, users]);
+    
+    useEffect(() => {
+        // Ensure team leader is set if not editing and users loaded
+        if (!initialData && users.length > 0 && !teamLeaderId) {
+            setTeamLeaderId(users[0].id!);
+        }
+    }, [users, teamLeaderId, initialData]);
     
     if (!isOpen) return null;
-
-    const resetForm = () => {
-        setTitle('');
-        setDescription('');
-        setEndDate('');
-        if (users.length > 0) setTeamLeaderId(users[0].id);
-        setTags('');
-        setBudget(0);
-    }
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -52,14 +67,23 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
         const tagsArray = tags.split(',').map(t => t.trim()).filter(Boolean);
 
         onSave({ title, description, endDate, teamLeader, tags: tagsArray, budget });
-        resetForm();
+        if (!initialData) { // Only reset if creating
+            setTitle('');
+            setDescription('');
+            setEndDate('');
+            if (users.length > 0) setTeamLeaderId(users[0].id!);
+            setTags('');
+            setBudget(0);
+        }
     };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center" aria-modal="true" role="dialog">
             <div className="bg-base-100 rounded-xl shadow-2xl p-6 sm:p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto dark:bg-gray-800">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-base-content dark:text-white">Create New Project</h2>
+                    <h2 className="text-2xl font-bold text-base-content dark:text-white">
+                        {initialData ? 'Edit Project' : 'Create New Project'}
+                    </h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-3xl leading-none dark:hover:text-gray-200">&times;</button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -93,7 +117,9 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
                     </div>
                     <div className="flex justify-end gap-4 pt-4">
                         <button type="button" onClick={onClose} className="bg-base-200 text-base-content font-bold py-2 px-4 rounded-lg hover:bg-base-300 transition-colors dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-white">Cancel</button>
-                        <button type="submit" className="bg-brand-primary text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-teal-700 transition-colors">Save Project</button>
+                        <button type="submit" className="bg-brand-primary text-brand-primary-content font-bold py-2 px-4 rounded-lg shadow-md hover:bg-teal-700 transition-colors">
+                            {initialData ? 'Update Project' : 'Save Project'}
+                        </button>
                     </div>
                 </form>
             </div>

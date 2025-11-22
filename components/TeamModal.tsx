@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Team, User } from '../types';
 
@@ -52,7 +53,7 @@ const TeamModal: React.FC<TeamModalProps> = ({ team, allUsers, onClose, onSave }
                     </div>
                     <div className="flex justify-end gap-4 pt-4">
                         <button type="button" onClick={onClose} className="bg-base-200 text-base-content font-bold py-2 px-4 rounded-lg hover:bg-base-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500">Cancel</button>
-                        <button type="submit" className="bg-brand-primary text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-teal-700">Save</button>
+                        <button type="submit" className="bg-brand-primary text-brand-primary-content font-bold py-2 px-4 rounded-lg shadow-md hover:bg-teal-700">Save</button>
                     </div>
                 </form>
             </div>

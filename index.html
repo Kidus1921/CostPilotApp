@@ -5,14 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CostPilot - Project Management</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      :root {
+        /* Light Mode: Primary = Deep Red (#65081b), Secondary = Gold (#f3c613) */
+        --color-brand-primary: 101 8 27;
+        --color-brand-primary-content: 255 255 255; /* White text on Deep Red */
+        --color-brand-secondary: 243 198 19;
+      }
+      .dark {
+        /* Dark Mode: Primary = Gold (#f3c613) for visibility, Secondary = Deep Red (#65081b) */
+        --color-brand-primary: 243 198 19;
+        /* Requirement: "if the backgraound is #f3c613 use #65081b as a text color" */
+        --color-brand-primary-content: 101 8 27; /* Deep Red text on Gold */
+        --color-brand-secondary: 101 8 27;
+      }
+    </style>
     <script>
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
             colors: {
-              'brand-primary': '#0D9488', // Teal
-              'brand-secondary': '#F97316', // Orange
+              'brand-primary': 'rgb(var(--color-brand-primary) / <alpha-value>)', 
+              'brand-primary-content': 'rgb(var(--color-brand-primary-content) / <alpha-value>)',
+              'brand-secondary': 'rgb(var(--color-brand-secondary) / <alpha-value>)', 
               'base-100': '#FFFFFF',
               'base-200': '#F3F4F6',
               'base-300': '#E5E7EB',

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
@@ -115,7 +116,7 @@ const TeamsTab: React.FC = () => {
             <div className="flex justify-end mb-4">
                 <button
                     onClick={() => handleOpenModal()}
-                    className="bg-brand-primary text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-teal-700 transition-colors duration-300 flex items-center"
+                    className="bg-brand-primary text-brand-primary-content font-bold py-2 px-4 rounded-lg shadow-md hover:bg-teal-700 transition-colors duration-300 flex items-center"
                 >
                     <PlusIcon className="w-5 h-5 mr-2" /> Add Team
                 </button>

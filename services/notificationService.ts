@@ -1,7 +1,7 @@
 
-import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { Notification, NotificationType, User } from '../types';
+import { Notification, NotificationType, User, NotificationPriority, Project, ProjectStatus } from '../types';
 import { sendEmailNotification } from './emailService';
 import { sendSendPulseNotification } from './sendPulseService';
 
@@ -107,4 +107,74 @@ export const markNotificationAsRead = async (notificationId: string): Promise<vo
 
 export const deleteNotification = async (notificationId: string): Promise<void> => {
     await deleteDoc(doc(db, 'notifications', notificationId));
+};
+
+export const runSystemHealthChecks = async () => {
+    console.log("Running system health checks...");
+    const now = new Date();
+    const dayInMs = 1000 * 60 * 60 * 24;
+    const INACTIVITY_THRESHOLD_DAYS = 3; // Using 3 days for easier testing/demo purposes
+
+    let checksPerformed = 0;
+
+    // 1. Check Overdue Projects
+    try {
+        const projectsSnap = await getDocs(collection(db, 'projects'));
+        projectsSnap.forEach(async (pDoc) => {
+            const project = pDoc.data() as Project;
+            if (!project.endDate) return;
+            
+            const endDate = new Date(project.endDate);
+            
+            // Check if project is active and overdue
+            if (project.status !== ProjectStatus.Completed && endDate < now) {
+                if (project.teamLeader && project.teamLeader.id) {
+                    console.log(`Flagging overdue project: ${project.title}`);
+                    await createNotification({
+                        userId: project.teamLeader.id,
+                        title: 'Project Overdue Alert',
+                        message: `The project "${project.title}" was due on ${project.endDate}. Please review the status.`,
+                        type: NotificationType.Deadline,
+                        priority: NotificationPriority.High,
+                        link: `/projects/${pDoc.id}`
+                    });
+                    checksPerformed++;
+                }
+            }
+        });
+    } catch (error) {
+        console.error("Error checking deadlines:", error);
+    }
+
+    // 2. Check Inactive Users
+    try {
+        const usersSnap = await getDocs(collection(db, 'users'));
+        usersSnap.forEach(async (uDoc) => {
+            const user = uDoc.data() as User;
+            
+            // Skip if no login record
+            if (!user.lastLogin) return;
+            
+            const lastLogin = new Date(user.lastLogin);
+            const diffMs = now.getTime() - lastLogin.getTime();
+            const diffDays = Math.floor(diffMs / dayInMs);
+
+            if (diffDays >= INACTIVITY_THRESHOLD_DAYS) {
+                 console.log(`Flagging inactive user: ${user.name} (${diffDays} days)`);
+                 await createNotification({
+                    userId: uDoc.id,
+                    title: 'We Miss You!',
+                    message: `It's been ${diffDays} days since your last visit. Check your dashboard for updates.`,
+                    type: NotificationType.System,
+                    priority: NotificationPriority.Medium,
+                    // This will attempt to send Push/Email based on preferences
+                });
+                checksPerformed++;
+            }
+        });
+    } catch (error) {
+         console.error("Error checking inactivity:", error);
+    }
+    
+    return { success: true, message: `Health checks completed. Action items processed.` };
 };
