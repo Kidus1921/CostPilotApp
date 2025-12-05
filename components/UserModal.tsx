@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, UserRole, UserStatus, Team } from '../types';
 
 interface UserModalProps {
@@ -11,25 +11,61 @@ interface UserModalProps {
 
 const UserModal: React.FC<UserModalProps> = ({ user, teams, onClose, onSave }) => {
     const [formData, setFormData] = useState<Partial<User>>({
-        id: user?.id || undefined,
-        name: user?.name || '',
-        email: user?.email || '',
-        phone: user?.phone || '',
-        role: user?.role || UserRole.ProjectManager,
-        status: user?.status || UserStatus.Active,
-        teamId: user?.teamId || '',
+        name: '',
+        email: '',
+        phone: '',
+        role: UserRole.ProjectManager,
+        status: UserStatus.Active,
+        teamId: null,
     });
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+
+    // Sync state with props when modal opens or user changes
+    useEffect(() => {
+        if (user) {
+            setFormData({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone || '',
+                role: user.role,
+                status: user.status,
+                teamId: user.teamId || null,
+            });
+        } else {
+            // Reset for Add Mode
+            setFormData({
+                name: '',
+                email: '',
+                phone: '',
+                role: UserRole.ProjectManager,
+                status: UserStatus.Active,
+                teamId: null,
+            });
+            setPassword('');
+            setConfirmPassword('');
+        }
+    }, [user]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
+    
+    const handleTeamChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const val = e.target.value;
+        // Postgres UUID column expects null, not empty string
+        setFormData(prev => ({ ...prev, teamId: val === "" ? null : val }));
+    }
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name || !formData.email) {
+        // Trim inputs to avoid auth errors with leading/trailing spaces
+        const cleanName = formData.name?.trim() || '';
+        const cleanEmail = formData.email?.trim() || '';
+
+        if (!cleanName || !cleanEmail) {
             alert('Please fill in name and email.');
             return;
         }
@@ -39,12 +75,13 @@ const UserModal: React.FC<UserModalProps> = ({ user, teams, onClose, onSave }) =
         }
 
         const dataToSave: User = {
-            ...formData,
-            name: formData.name!,
-            email: formData.email!,
-            phone: formData.phone!,
-            role: formData.role!,
-            status: formData.status!,
+            ...formData as User,
+            name: cleanName,
+            email: cleanEmail,
+            phone: formData.phone || '',
+            role: formData.role || UserRole.ProjectManager,
+            status: formData.status || UserStatus.Active,
+            teamId: formData.teamId || null 
         };
 
         if (password) {
@@ -95,7 +132,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, teams, onClose, onSave }) =
                     </div>
                      <div>
                         <label htmlFor="teamId" className="block text-sm font-medium text-base-content-secondary dark:text-gray-400">Team</label>
-                        <select id="teamId" name="teamId" value={formData.teamId} onChange={handleChange} className="mt-1 block w-full pl-3 pr-10 py-2 border-base-300 focus:outline-none focus:ring-brand-primary rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                        <select id="teamId" name="teamId" value={formData.teamId || ""} onChange={handleTeamChange} className="mt-1 block w-full pl-3 pr-10 py-2 border-base-300 focus:outline-none focus:ring-brand-primary rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                             <option value="">No Team</option>
                             {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
                         </select>

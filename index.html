@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CostPilot - Project Management</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // Polyfill process.env for client-side libraries to prevent crashes
+      window.process = { env: { NODE_ENV: 'development' } };
+    </script>
     <style>
       :root {
         /* Light Mode: Primary = Deep Red (#65081b), Secondary = Gold (#f3c613) */
@@ -47,11 +51,7 @@
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "firebase/app": "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js",
-    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js",
-    "firebase/storage": "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js",
-    "firebase/analytics": "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js",
-    "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/",
+    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.45.0",
     "jspdf": "https://aistudiocdn.com/jspdf@^3.0.3",
     "html2canvas": "https://aistudiocdn.com/html2canvas@^1.4.1"
   }

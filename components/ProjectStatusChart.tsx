@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Project, ProjectStatus } from '../types';
@@ -21,6 +20,7 @@ const ProjectStatusChart: React.FC<ProjectStatusChartProps> = ({ projects }) => 
     [ProjectStatus.Completed]: '#10B981', // green-500
     [ProjectStatus.OnHold]: '#F97316', // orange-500
     [ProjectStatus.Pending]: '#6B7280', // gray-500
+    [ProjectStatus.Rejected]: '#EF4444', // red-500
   };
 
   return (

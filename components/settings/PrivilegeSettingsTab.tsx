@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, onSnapshot, query, updateDoc, doc } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
+import { supabase } from '../../supabaseClient';
 import { User, UserRole } from '../../types';
 import { SearchIcon, CheckCircleIcon, XCircleIcon, UserGroupIcon } from '../IconComponents';
 import Avatar from '../Avatar';
 import { logActivity } from '../../services/activityLogger';
+import { useAppContext } from '../../AppContext';
 
 interface PrivilegeDef {
     id: string;
@@ -23,32 +23,40 @@ const DEFINED_PRIVILEGES: PrivilegeDef[] = [
 ];
 
 const PrivilegeSettingsTab: React.FC = () => {
+    const { currentUser } = useAppContext();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPrivilege, setSelectedPrivilege] = useState<PrivilegeDef | null>(null);
 
-    useEffect(() => {
-        const q = query(collection(db, "users"));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const usersData: User[] = [];
-            querySnapshot.forEach((doc) => {
-                usersData.push({ id: doc.id, ...doc.data() } as User);
-            });
-            setUsers(usersData);
-            setLoading(false);
-        }, (err) => {
+    const fetchUsers = async () => {
+        try {
+            const { data, error } = await supabase.from('users').select('*').order('name');
+            if (error) throw error;
+            setUsers(data as User[]);
+        } catch (err) {
             console.error("Error fetching users for privileges:", err);
+        } finally {
             setLoading(false);
-        });
+        }
+    };
 
-        return () => unsubscribe();
+    useEffect(() => {
+        fetchUsers();
+
+        const channel = supabase.channel('privilege_settings')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchUsers)
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
-    const toggleUserPrivilege = async (user: User, privilegeId: string) => {
-        if (!user.id) return;
+    const toggleUserPrivilege = async (targetUser: User, privilegeId: string) => {
+        if (!targetUser.id) return;
         
-        const currentPrivileges = user.privileges || [];
+        const currentPrivileges = targetUser.privileges || [];
         let newPrivileges: string[];
         let action = '';
 
@@ -61,11 +69,17 @@ const PrivilegeSettingsTab: React.FC = () => {
         }
 
         try {
-            const userRef = doc(db, "users", user.id);
-            await updateDoc(userRef, {
+            const { error } = await supabase.from('users').update({
                 privileges: newPrivileges
-            });
-            logActivity('Updated Permissions', `${action} '${privilegeId}' for user ${user.name}`);
+            }).eq('id', targetUser.id);
+
+            if (error) throw error;
+            
+            logActivity('Updated Permissions', `${action} '${privilegeId}' for user ${targetUser.name}`, currentUser);
+            
+            // Optimistic update local state for immediate feedback
+            setUsers(prev => prev.map(u => u.id === targetUser.id ? { ...u, privileges: newPrivileges } : u));
+            
         } catch (err) {
             console.error("Failed to update privilege:", err);
             alert("Failed to update permissions.");
@@ -170,7 +184,7 @@ const PrivilegeSettingsTab: React.FC = () => {
                                                     </div>
                                                     
                                                     {isAdmin ? (
-                                                        <span className="text-xs font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded dark:bg-gray-700">Admin (Always On)</span>
+                                                        <span className="text-xs font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded dark:bg-gray-700">Admin</span>
                                                     ) : (
                                                         <button
                                                             onClick={() => toggleUserPrivilege(user, privilege.id)}

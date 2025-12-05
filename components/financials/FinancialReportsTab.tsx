@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { collection, onSnapshot, query } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
+import { supabase } from '../../supabaseClient';
 import { Project, Task, ProjectStatus, ExpenseCategory, TaskStatus } from '../../types';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { exportTableToExcel, exportElementAsPDF } from '../../services/exportService';
@@ -104,23 +103,21 @@ const FinancialReportsTab: React.FC = () => {
     const [endDate, setEndDate] = useState('');
 
     useEffect(() => {
-        const q = query(collection(db, "projects"));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            setError(null);
-            const projectsData: Project[] = [];
-            querySnapshot.forEach((doc) => {
-                const data = doc.data() as Omit<Project, 'id' | 'spent'>;
-                const spent = (data.tasks || []).reduce((sum, task) => sum + (task.completionDetails?.actualCost || 0), 0);
-                projectsData.push({ id: doc.id, ...data, spent });
-            });
-            setProjects(projectsData);
+        const fetchProjects = async () => {
+            const { data, error } = await supabase.from('projects').select('*');
+            if (error) {
+                console.error("Financial reports fetch error:", error);
+                setError("Could not load financial report data.");
+            } else if (data) {
+                const projectsData: Project[] = data.map((d: any) => {
+                    const spent = (d.tasks || []).reduce((sum: number, task: any) => sum + (task.completionDetails?.actualCost || 0), 0);
+                    return { ...d, spent };
+                });
+                setProjects(projectsData);
+            }
             setLoading(false);
-        }, (err) => {
-            console.error("Financial reports fetch error:", err);
-            setError("Could not load financial report data.");
-            setLoading(false);
-        });
-        return () => unsubscribe();
+        };
+        fetchProjects();
     }, []);
 
     const filteredTasks = useMemo(() => {

@@ -30,51 +30,47 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
+                // Edit Mode: Populate fields
                 setTitle(initialData.title);
-                setDescription(initialData.description);
-                setEndDate(initialData.endDate);
-                setTeamLeaderId(initialData.teamLeader.id || '');
+                setDescription(initialData.description || '');
+                // Ensure date format is YYYY-MM-DD
+                setEndDate(initialData.endDate ? new Date(initialData.endDate).toISOString().split('T')[0] : '');
+                setTeamLeaderId(initialData.teamLeader?.id || (users.length > 0 ? users[0].id! : ''));
                 setTags(initialData.tags?.join(', ') || '');
-                setBudget(initialData.budget);
+                setBudget(initialData.budget || 0);
             } else {
-                // Reset for Create Mode
+                // Create Mode: Reset fields
                 setTitle('');
                 setDescription('');
                 setEndDate('');
-                if (users.length > 0) setTeamLeaderId(users[0].id!);
+                setTeamLeaderId(users.length > 0 ? users[0].id! : '');
                 setTags('');
                 setBudget(0);
             }
         }
     }, [isOpen, initialData, users]);
-    
-    useEffect(() => {
-        // Ensure team leader is set if not editing and users loaded
-        if (!initialData && users.length > 0 && !teamLeaderId) {
-            setTeamLeaderId(users[0].id!);
-        }
-    }, [users, teamLeaderId, initialData]);
-    
+
     if (!isOpen) return null;
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        
         const teamLeader = users.find(u => u.id === teamLeaderId);
         if (!title || !endDate || !teamLeader) {
             alert('Please fill all required fields.');
             return;
         }
+
         const tagsArray = tags.split(',').map(t => t.trim()).filter(Boolean);
 
-        onSave({ title, description, endDate, teamLeader, tags: tagsArray, budget });
-        if (!initialData) { // Only reset if creating
-            setTitle('');
-            setDescription('');
-            setEndDate('');
-            if (users.length > 0) setTeamLeaderId(users[0].id!);
-            setTags('');
-            setBudget(0);
-        }
+        onSave({ 
+            title, 
+            description, 
+            endDate, 
+            teamLeader, 
+            tags: tagsArray, 
+            budget 
+        });
     };
 
     return (
@@ -82,7 +78,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
             <div className="bg-base-100 rounded-xl shadow-2xl p-6 sm:p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto dark:bg-gray-800">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-bold text-base-content dark:text-white">
-                        {initialData ? 'Edit Project' : 'Create New Project'}
+                        {initialData ? 'Edit Project Details' : 'Create New Project'}
                     </h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-3xl leading-none dark:hover:text-gray-200">&times;</button>
                 </div>
@@ -99,7 +95,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
                         <div>
                             <label htmlFor="teamLeader" className="block text-sm font-medium text-base-content-secondary dark:text-gray-400">Project Manager</label>
                             <select id="teamLeader" value={teamLeaderId} onChange={e => setTeamLeaderId(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-base-300 focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm rounded-md bg-base-100 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                {users.map(u => <option key={u.id} value={u.id!}>{u.name}</option>)}
                             </select>
                         </div>
                         <div>

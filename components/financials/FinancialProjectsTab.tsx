@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useMemo, FC } from 'react';
-import { collection, onSnapshot, query } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
+import { supabase } from '../../supabaseClient';
 import { Project, ProjectStatus, Task, TaskStatus } from '../../types';
 import { FileExcelIcon, FolderIcon, ArrowUpIcon, ArrowDownIcon } from '../IconComponents';
 import { exportTableToExcel } from '../../services/exportService';
@@ -17,6 +16,7 @@ const StatusBadge: FC<{ status: ProjectStatus | TaskStatus }> = ({ status }) => 
         'Pending': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
         'In Progress': 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
         'Completed': 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
+        'Rejected': 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300',
     };
     return <span className={`px-3 py-1 inline-flex text-xs font-bold rounded-full items-center ${colorMap[status]}`}>{status}</span>;
 };
@@ -48,27 +48,22 @@ const FinancialProjectsTab: React.FC = () => {
     const [selectedProjectId, setSelectedProjectId] = useState('all');
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>({ key: 'projectName', direction: 'ascending' });
 
-    const projectsCollectionRef = collection(db, 'projects');
-
     useEffect(() => {
-        const q = query(projectsCollectionRef);
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            setError(null);
-            const projectsData: Project[] = [];
-            querySnapshot.forEach(doc => {
-                const data = doc.data() as Omit<Project, 'id' | 'spent'>;
-                const spent = (data.tasks || []).reduce((sum, task) => sum + (task.completionDetails?.actualCost || 0), 0);
-                projectsData.push({ id: doc.id, ...data, spent });
-            });
-            setProjects(projectsData);
+        const fetchProjects = async () => {
+            const { data, error } = await supabase.from('projects').select('*');
+            if (error) {
+                console.error("Financial projects fetch error:", error);
+                setError("Could not load financial project data.");
+            } else if (data) {
+                const projectsData: Project[] = data.map((d: any) => {
+                    const spent = (d.tasks || []).reduce((sum: number, task: any) => sum + (task.completionDetails?.actualCost || 0), 0);
+                    return { ...d, spent };
+                });
+                setProjects(projectsData);
+            }
             setLoading(false);
-        }, (err) => {
-            console.error("Financial projects fetch error:", err);
-            setError("Could not load financial project data.");
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
+        };
+        fetchProjects();
     }, []);
 
     const requestSort = (key: SortKey) => {

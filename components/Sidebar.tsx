@@ -1,7 +1,8 @@
 
 import React from 'react';
 import { DashboardIcon, ProjectsIcon, ReportsIcon, FinanceIcon, SettingsIcon, FolderIcon, BellIcon } from './IconComponents';
-import { User, UserRole } from '../types';
+import { UserRole } from '../types';
+import { useAppContext } from '../AppContext';
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -28,10 +29,11 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick }) => (
 interface SidebarProps {
     activePage: string;
     setActivePage: (page: string) => void;
-    currentUser: User;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, currentUser }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
+  const { currentUser } = useAppContext();
+
   const allNavItems = [
     { label: 'Dashboard', icon: <DashboardIcon className="w-6 h-6" />, roles: [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance] },
     { label: 'Projects', icon: <ProjectsIcon className="w-6 h-6" />, roles: [UserRole.Admin, UserRole.ProjectManager] },

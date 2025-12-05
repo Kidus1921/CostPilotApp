@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { doc, onSnapshot, updateDoc, collection, query, getDocs } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
+import { supabase } from '../../supabaseClient';
 import { User, UserNotificationPreferences, NotificationPriority, Project, UserRole, NotificationType } from '../../types';
 import { BellIcon, EnvelopeIcon } from '../IconComponents';
 import { subscribeToSendPulse, unsubscribeFromSendPulse, setSendPulseCredentials } from '../../services/sendPulseService';
@@ -27,9 +26,12 @@ const defaultPreferences: UserNotificationPreferences = {
     pushEnabled: false
 };
 
-const NotificationSettingsTab: React.FC = () => {
-    // Hardcoded user for now, in real app this would be from context
-    const currentUserId = 'u1'; 
+interface NotificationSettingsTabProps {
+    currentUser: User;
+}
+
+const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ currentUser }) => {
+    const currentUserId = currentUser.id; 
     const [preferences, setPreferences] = useState<UserNotificationPreferences | null>(null);
     const [currentUserRole, setCurrentUserRole] = useState<UserRole>(UserRole.ProjectManager);
     const [projects, setProjects] = useState<Project[]>([]);
@@ -60,54 +62,69 @@ const NotificationSettingsTab: React.FC = () => {
             }
         };
 
-        const userRef = doc(db, 'users', currentUserId);
-        const unsubscribeUser = onSnapshot(userRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const userData = docSnap.data() as User;
-                setPreferences(userData.notificationPreferences || defaultPreferences);
+        const fetchUser = async () => {
+            const { data, error } = await supabase.from('users').select('*').eq('id', currentUserId).single();
+            if (error) {
+                console.error("Failed to fetch user preferences:", error.message || error);
+                setError("Could not load notification settings.");
+            } else if (data) {
+                const userData = data as User;
+                
+                // Deep merge defaults with fetched data to handle empty/partial objects from DB
+                const dbPrefs = (userData.notificationPreferences || {}) as Partial<UserNotificationPreferences>;
+                const mergedPrefs: UserNotificationPreferences = {
+                    ...defaultPreferences,
+                    ...dbPrefs,
+                    // Ensure nested objects exist
+                    inApp: { ...defaultPreferences.inApp, ...(dbPrefs.inApp || {}) },
+                    email: { ...defaultPreferences.email, ...(dbPrefs.email || {}) },
+                    priorityThreshold: dbPrefs.priorityThreshold || defaultPreferences.priorityThreshold,
+                    projectSubscriptions: dbPrefs.projectSubscriptions || defaultPreferences.projectSubscriptions,
+                    pushEnabled: dbPrefs.pushEnabled !== undefined ? dbPrefs.pushEnabled : defaultPreferences.pushEnabled
+                };
+
+                setPreferences(mergedPrefs);
                 setCurrentUserRole(userData.role);
             } else {
-                setPreferences(defaultPreferences);
+                 setPreferences(defaultPreferences);
             }
-            if(!userLoaded) {
-                userLoaded = true;
-                checkLoading();
-            }
-            setError(null);
-        }, (err) => {
-            console.error("Failed to fetch user preferences:", err);
-            setError("Could not load notification settings.");
-            setLoading(false);
-        });
+            userLoaded = true;
+            checkLoading();
+        };
 
-        const projectsQuery = query(collection(db, 'projects'));
-        const unsubscribeProjects = onSnapshot(projectsQuery, (snapshot) => {
-            const projectsData: Project[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
-            setProjects(projectsData);
-            if(!projectsLoaded) {
-                projectsLoaded = true;
-                checkLoading();
-            }
-             setError(null);
-        }, (err) => {
-            console.error("Failed to fetch projects for subscriptions:", err);
-            setError("Could not load project list.");
-            setLoading(false);
-        });
+        const fetchProjects = async () => {
+             const { data, error } = await supabase.from('projects').select('*');
+             if (error) {
+                 console.error("Failed to fetch projects for subscriptions:", error);
+                 setError("Could not load project list.");
+             } else if (data) {
+                 setProjects(data as Project[]);
+             }
+             projectsLoaded = true;
+             checkLoading();
+        };
+
+        fetchUser();
+        fetchProjects();
+
+        const userSub = supabase.channel('notification_settings_user')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${currentUserId}` }, fetchUser)
+            .subscribe();
 
         return () => {
-            unsubscribeUser();
-            unsubscribeProjects();
+            supabase.removeChannel(userSub);
         };
     }, [currentUserId]);
 
     const handlePreferenceChange = useCallback((category: 'inApp' | 'email', key: string, value: boolean) => {
         setPreferences(prev => {
             if (!prev) return null;
+            // Ensure category exists before spreading (defensive)
+            const categoryObj = prev[category] || defaultPreferences[category];
             return {
                 ...prev,
                 [category]: {
-                    ...prev[category],
+                    ...categoryObj,
                     [key]: value,
                 },
             };
@@ -145,10 +162,8 @@ const NotificationSettingsTab: React.FC = () => {
         if (!currentUserId || !preferences) return;
         setStatus('saving');
         try {
-            const userRef = doc(db, 'users', currentUserId);
-            await updateDoc(userRef, {
-                notificationPreferences: preferences
-            });
+            const { error } = await supabase.from('users').update({ notificationPreferences: preferences }).eq('id', currentUserId);
+            if (error) throw error;
             setStatus('saved');
             setTimeout(() => setStatus('idle'), 2000);
         } catch (err) {
@@ -216,20 +231,21 @@ const NotificationSettingsTab: React.FC = () => {
         try {
             console.log(`[Admin Broadcast] Title: ${broadcastTitle}, Msg: ${broadcastMessage}`);
             
-            const usersSnapshot = await getDocs(collection(db, 'users'));
-            const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+            const { data: users } = await supabase.from('users').select('*');
             
             let count = 0;
-            for (const user of users) {
-                if (user.id) {
-                    await createNotification({
-                        userId: user.id,
-                        title: broadcastTitle,
-                        message: broadcastMessage,
-                        type: NotificationType.System,
-                        priority: NotificationPriority.High,
-                    });
-                    count++;
+            if (users) {
+                for (const user of users) {
+                    if (user.id) {
+                        await createNotification({
+                            userId: user.id,
+                            title: broadcastTitle,
+                            message: broadcastMessage,
+                            type: NotificationType.System,
+                            priority: NotificationPriority.High,
+                        });
+                        count++;
+                    }
                 }
             }
             
@@ -248,7 +264,8 @@ const NotificationSettingsTab: React.FC = () => {
     
     const handleRunHealthChecks = async () => {
         setHealthCheckStatus('running');
-        await runSystemHealthChecks();
+        // Force run even if checks already ran today
+        await runSystemHealthChecks(true); 
         setHealthCheckStatus('completed');
         setTimeout(() => setHealthCheckStatus('idle'), 3000);
         alert("System checks initiated. Check console for details on overdue projects and inactive users.");
@@ -334,7 +351,7 @@ const NotificationSettingsTab: React.FC = () => {
                                         <input
                                             type="checkbox"
                                             className="h-5 w-5 rounded text-brand-primary focus:ring-brand-primary"
-                                            checked={preferences.inApp[key as keyof typeof preferences.inApp]}
+                                            checked={preferences.inApp ? preferences.inApp[key as keyof typeof preferences.inApp] : false}
                                             onChange={e => handlePreferenceChange('inApp', key, e.target.checked)}
                                         />
                                     </td>
@@ -342,7 +359,7 @@ const NotificationSettingsTab: React.FC = () => {
                                         <input
                                             type="checkbox"
                                             className="h-5 w-5 rounded text-brand-primary focus:ring-brand-primary"
-                                            checked={preferences.email[key as keyof typeof preferences.email]}
+                                            checked={preferences.email ? preferences.email[key as keyof typeof preferences.email] : false}
                                             onChange={e => handlePreferenceChange('email', key, e.target.checked)}
                                         />
                                     </td>

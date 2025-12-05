@@ -10,9 +10,21 @@ interface TeamModalProps {
 }
 
 const TeamModal: React.FC<TeamModalProps> = ({ team, allUsers, onClose, onSave }) => {
-    const [name, setName] = useState(team?.name || '');
-    const [description, setDescription] = useState(team?.description || '');
-    const [memberIds, setMemberIds] = useState<string[]>(team?.memberIds || []);
+    const [name, setName] = useState('');
+    const [description, setDescription] = useState('');
+    const [memberIds, setMemberIds] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (team) {
+            setName(team.name);
+            setDescription(team.description || '');
+            setMemberIds(team.memberIds || []);
+        } else {
+            setName('');
+            setDescription('');
+            setMemberIds([]);
+        }
+    }, [team]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();

@@ -1,8 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { supabase } from '../supabaseClient';
 import { Activity } from '../types';
-import { FolderIcon, CheckCircleIcon, ReportsIcon, FinanceIcon, UserGroupIcon } from './IconComponents';
+import { FolderIcon, CheckCircleIcon, ReportsIcon, FinanceIcon, UserGroupIcon, ArrowDownIcon } from './IconComponents';
 
 type ActivityDisplayType = 'project' | 'task' | 'report' | 'finance' | 'user';
 
@@ -10,7 +10,7 @@ const getActivityType = (action: string): ActivityDisplayType => {
     const lowerAction = action.toLowerCase();
     if (lowerAction.includes('project')) return 'project';
     if (lowerAction.includes('task')) return 'task';
-    if (lowerAction.includes('user') || lowerAction.includes('team')) return 'user';
+    if (lowerAction.includes('user') || lowerAction.includes('team') || lowerAction.includes('permissions')) return 'user';
     if (lowerAction.includes('expense')) return 'finance';
     return 'report'; // default
 };
@@ -36,25 +36,51 @@ const ActivityIcon: React.FC<{ type: ActivityDisplayType }> = ({ type }) => {
 const RecentActivity: React.FC = () => {
     const [activities, setActivities] = useState<Activity[]>([]);
     const [loading, setLoading] = useState(true);
+    const [limit, setLimit] = useState(20);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        const q = query(collection(db, 'activities'), orderBy('timestamp', 'desc'), limit(20));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            setError(null);
-            const activitiesData: Activity[] = [];
-            querySnapshot.forEach((doc) => {
-                activitiesData.push({ id: doc.id, ...doc.data() } as Activity);
-            });
-            setActivities(activitiesData);
-            setLoading(false);
-        }, (err) => {
-            console.error("Failed to fetch recent activity:", err);
+    const fetchActivities = async () => {
+        const { data, error } = await supabase
+            .from('activities')
+            .select('*')
+            .order('timestamp', { ascending: false })
+            .limit(limit);
+
+        if (error) {
+            console.error("Failed to fetch recent activity:", error);
             setError("Could not load activity feed.");
-            setLoading(false);
-        });
-        return () => unsubscribe();
-    }, []);
+        } else if (data) {
+            const activitiesData = data.map((d: any) => ({
+                ...d,
+                timestamp: d.timestamp ? { toDate: () => new Date(d.timestamp) } : null
+            }));
+            setActivities(activitiesData as Activity[]);
+        }
+        setLoading(false);
+    };
+
+    useEffect(() => {
+        fetchActivities();
+
+        const channel = supabase
+            .channel('recent_activity')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activities' }, (payload) => {
+                const newActivity = {
+                    ...payload.new,
+                    timestamp: { toDate: () => new Date(payload.new.timestamp) }
+                } as Activity;
+                setActivities(prev => [newActivity, ...prev]);
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [limit]);
+
+    const loadMore = () => {
+        setLimit(prev => prev + 20);
+    };
 
     const formatTimestamp = (timestamp: any) => {
         if (!timestamp) return 'Just now';
@@ -71,33 +97,43 @@ const RecentActivity: React.FC = () => {
 
     return (
         <div className="bg-base-100 p-6 rounded-xl shadow-md dark:bg-gray-800">
-            <h3 className="text-lg font-bold text-base-content dark:text-white">Recent Activity</h3>
-            <div className="mt-4 flow-root">
+            <h3 className="text-lg font-bold text-base-content dark:text-white">Activity Log</h3>
+            <div className="mt-6 flow-root">
                 {activities.length > 0 ? (
-                    <ul role="list" className="-mb-8">
-                        {activities.map((activity, activityIdx) => (
-                            <li key={activity.id}>
-                                <div className="relative pb-8">
-                                    {activityIdx !== activities.length - 1 ? (
-                                        <span className="absolute top-5 left-5 -ml-px h-full w-0.5 bg-gray-200 dark:bg-gray-700" aria-hidden="true" />
-                                    ) : null}
-                                    <div className="relative flex items-start space-x-3">
-                                        <ActivityIcon type={getActivityType(activity.action)} />
-                                        <div className="min-w-0 flex-1 pt-1.5">
-                                            <div>
-                                                <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                    <span className="font-medium text-gray-900 dark:text-gray-100">{activity.user.name}</span>{' '}
-                                                    {activity.action.toLowerCase()}{' '}
-                                                    <span className="font-medium text-gray-900 dark:text-gray-100">{activity.details}</span>
-                                                </p>
+                    <>
+                        <ul role="list" className="-mb-8">
+                            {activities.map((activity, activityIdx) => (
+                                <li key={activity.id}>
+                                    <div className="relative pb-8">
+                                        {activityIdx !== activities.length - 1 ? (
+                                            <span className="absolute top-5 left-5 -ml-px h-full w-0.5 bg-gray-200 dark:bg-gray-700" aria-hidden="true" />
+                                        ) : null}
+                                        <div className="relative flex items-start space-x-3">
+                                            <ActivityIcon type={getActivityType(activity.action)} />
+                                            <div className="min-w-0 flex-1 pt-1.5">
+                                                <div>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                        <span className="font-medium text-gray-900 dark:text-gray-100">{activity.user?.name || 'Unknown'}</span>{' '}
+                                                        {activity.action.toLowerCase()}{' '}
+                                                        <span className="font-medium text-gray-900 dark:text-gray-100">{activity.details}</span>
+                                                    </p>
+                                                </div>
+                                                <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-500">{formatTimestamp(activity.timestamp)}</p>
                                             </div>
-                                            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-500">{formatTimestamp(activity.timestamp)}</p>
                                         </div>
                                     </div>
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
+                                </li>
+                            ))}
+                        </ul>
+                        <div className="mt-8 text-center">
+                            <button 
+                                onClick={loadMore} 
+                                className="text-sm font-semibold text-brand-primary hover:text-teal-700 flex items-center justify-center w-full gap-2 p-2 rounded-lg hover:bg-base-200 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                <ArrowDownIcon className="w-4 h-4" /> Load More Activity
+                            </button>
+                        </div>
+                    </>
                 ) : (
                     <p className="text-center text-gray-500 dark:text-gray-400">No recent activity recorded.</p>
                 )}

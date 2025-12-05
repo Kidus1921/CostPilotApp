@@ -1,6 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, where, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
+import { supabase } from '../../supabaseClient';
 import { Project, ProjectStatus, NotificationType, NotificationPriority } from '../../types';
 import { CheckIcon, XIcon } from '../IconComponents';
 import RejectionModal from './RejectionModal';
@@ -15,30 +15,42 @@ const FinancialApprovalsTab: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [projectToReject, setProjectToReject] = useState<Project | null>(null);
 
-    useEffect(() => {
-        const q = query(collection(db, 'projects'), where('status', '==', ProjectStatus.Pending));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            setError(null);
-            const projectsData: Project[] = [];
-            querySnapshot.forEach(doc => {
-                projectsData.push({ ...doc.data(), id: doc.id } as Project);
-            });
-            setPendingProjects(projectsData);
-            setLoading(false);
-        }, (err) => {
-            console.error("Financial approvals fetch error:", err);
+    const fetchPendingProjects = async () => {
+        const { data, error } = await supabase
+            .from('projects')
+            .select('*')
+            .eq('status', ProjectStatus.Pending);
+
+        if (error) {
+            console.error("Financial approvals fetch error:", error);
             setError("Could not load pending approvals.");
-            setLoading(false);
-        });
-        return () => unsubscribe();
+        } else if (data) {
+            setPendingProjects(data as Project[]);
+        }
+        setLoading(false);
+    };
+
+    useEffect(() => {
+        fetchPendingProjects();
+        const sub = supabase.channel('financial_approvals')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'projects', filter: `status=eq.${ProjectStatus.Pending}` }, fetchPendingProjects)
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(sub);
+        };
     }, []);
 
     const handleApprove = async (project: Project) => {
         if (!project.id || !project.teamLeader.id) return;
-        const projectDoc = doc(db, 'projects', project.id);
-        await updateDoc(projectDoc, {
-            status: ProjectStatus.InProgress,
-        });
+        
+        const { error } = await supabase.from('projects').update({ status: ProjectStatus.InProgress }).eq('id', project.id);
+        
+        if (error) {
+            console.error("Failed to approve project:", error);
+            return;
+        }
+
         logActivity('Approved Project', project.title);
         createNotification({
             userId: project.teamLeader.id,
@@ -48,25 +60,34 @@ const FinancialApprovalsTab: React.FC = () => {
             priority: NotificationPriority.High,
             link: `/projects/${project.id}`
         });
+        fetchPendingProjects();
     };
 
     const handleReject = async (project: Project, reason: string) => {
         if (!project.id || !project.teamLeader.id) return;
-        const projectDoc = doc(db, 'projects', project.id);
-        await updateDoc(projectDoc, {
-            status: ProjectStatus.OnHold,
-            rejectionReason: reason
-        });
+
+        // Requirement: Set status to Rejected if rejected
+        const { error } = await supabase.from('projects').update({ 
+            status: ProjectStatus.Rejected,
+            rejectionReason: reason 
+        }).eq('id', project.id);
+
+        if (error) {
+             console.error("Failed to reject project:", error);
+             return;
+        }
+
         logActivity('Rejected Project', `${project.title} for reason: ${reason}`);
         createNotification({
             userId: project.teamLeader.id,
             title: 'Project Rejected',
-            message: `Your project "${project.title}" has been put on hold. Reason: ${reason}`,
+            message: `Your project "${project.title}" has been rejected. Reason: ${reason}`,
             type: NotificationType.ApprovalResult,
             priority: NotificationPriority.High,
             link: `/projects/${project.id}`
         });
         setProjectToReject(null);
+        fetchPendingProjects();
     };
 
     if (loading) {

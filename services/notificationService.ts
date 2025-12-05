@@ -1,53 +1,93 @@
 
-import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
-import { Notification, NotificationType, User, NotificationPriority, Project, ProjectStatus } from '../types';
+import { supabase } from '../supabaseClient';
+import { Notification, NotificationType, User, NotificationPriority, Project, ProjectStatus, UserNotificationPreferences } from '../types';
 import { sendEmailNotification } from './emailService';
 import { sendSendPulseNotification } from './sendPulseService';
 
+// Default preferences to fall back on
+const defaultPreferences: UserNotificationPreferences = {
+    inApp: {
+        taskUpdates: true,
+        approvals: true,
+        costOverruns: true,
+        deadlines: true,
+        system: true,
+    },
+    email: {
+        taskUpdates: false,
+        approvals: false,
+        costOverruns: false,
+        deadlines: false,
+        system: false,
+    },
+    priorityThreshold: NotificationPriority.Medium,
+    projectSubscriptions: [],
+    pushEnabled: false
+};
+
 // Helper to get user data
 const getUser = async (userId: string): Promise<User | null> => {
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    return userDoc.exists() ? userDoc.data() as User : null;
+    const { data } = await supabase.from('users').select('*').eq('id', userId).single();
+    return data as User | null;
 };
 
 // Main function to create a notification
 export const createNotification = async (notificationData: Omit<Notification, 'id' | 'timestamp' | 'isRead'>): Promise<void> => {
     try {
-        // 1. Add notification to Firestore (In-App History)
-        await addDoc(collection(db, 'notifications'), {
+        // 1. Add notification to Supabase
+        await supabase.from('notifications').insert([{
             ...notificationData,
             isRead: false,
-            timestamp: serverTimestamp()
-        });
+            timestamp: new Date().toISOString()
+        }]);
 
         // 2. Fetch User Preferences
         const targetUser = await getUser(notificationData.userId);
-        if (!targetUser || !targetUser.notificationPreferences) return;
+        if (!targetUser) return;
 
-        const { email: emailPrefs, inApp: inAppPrefs, pushEnabled } = targetUser.notificationPreferences;
+        // Merge user preferences with defaults to avoid undefined errors
+        const userPrefs = (targetUser.notificationPreferences || {}) as Partial<UserNotificationPreferences>;
         
-        // Determine priority logic (simple threshold check)
-        // (In a real app, map priority enums to numbers for comparison)
+        // Defensive coding: Ensure sub-objects exist
+        const safeUserEmailPrefs = userPrefs.email || {};
+        const safeUserInAppPrefs = userPrefs.inApp || {};
+
+        const emailPrefs = { 
+            ...defaultPreferences.email, 
+            ...safeUserEmailPrefs
+        } as UserNotificationPreferences['email'];
         
+        const inAppPrefs = { 
+            ...defaultPreferences.inApp, 
+            ...safeUserInAppPrefs
+        } as UserNotificationPreferences['inApp'];
+
+        const pushEnabled = userPrefs.pushEnabled !== undefined ? userPrefs.pushEnabled : defaultPreferences.pushEnabled;
+
         // 3. Email Notifications
         let shouldSendEmail = false;
+        
+        // Safely check properties
+        const checkEmailPref = (prop: keyof UserNotificationPreferences['email']) => {
+            return emailPrefs && emailPrefs[prop] === true;
+        };
+
         switch (notificationData.type) {
             case NotificationType.ApprovalRequest:
             case NotificationType.ApprovalResult:
-                if (emailPrefs.approvals) shouldSendEmail = true;
+                if (checkEmailPref('approvals')) shouldSendEmail = true;
                 break;
             case NotificationType.CostOverrun:
-                if (emailPrefs.costOverruns) shouldSendEmail = true;
+                if (checkEmailPref('costOverruns')) shouldSendEmail = true;
                 break;
             case NotificationType.Deadline:
-                if (emailPrefs.deadlines) shouldSendEmail = true;
+                if (checkEmailPref('deadlines')) shouldSendEmail = true;
                 break;
             case NotificationType.System:
-                if (emailPrefs.system) shouldSendEmail = true;
+                if (checkEmailPref('system')) shouldSendEmail = true;
                 break;
             case NotificationType.TaskUpdate:
-                if (emailPrefs.taskUpdates) shouldSendEmail = true;
+                if (checkEmailPref('taskUpdates')) shouldSendEmail = true;
                 break;
         }
 
@@ -60,33 +100,35 @@ export const createNotification = async (notificationData: Omit<Notification, 'i
         }
 
         // 4. Web Push Notifications (SendPulse)
-        // Check global push toggle and specific category in inApp
         let shouldSendPush = pushEnabled || false;
         
-        // Refine push logic based on category if globally enabled
+        // Safely check properties for push suppression
+        const checkInAppPref = (prop: keyof UserNotificationPreferences['inApp']) => {
+             return inAppPrefs && inAppPrefs[prop] === true;
+        };
+
         if (shouldSendPush) {
              switch (notificationData.type) {
                 case NotificationType.ApprovalRequest:
                 case NotificationType.ApprovalResult:
-                    if (!inAppPrefs.approvals) shouldSendPush = false;
+                    if (!checkInAppPref('approvals')) shouldSendPush = false;
                     break;
                 case NotificationType.CostOverrun:
-                    if (!inAppPrefs.costOverruns) shouldSendPush = false;
+                    if (!checkInAppPref('costOverruns')) shouldSendPush = false;
                     break;
                 case NotificationType.Deadline:
-                    if (!inAppPrefs.deadlines) shouldSendPush = false;
+                    if (!checkInAppPref('deadlines')) shouldSendPush = false;
                     break;
                 case NotificationType.System:
-                    if (!inAppPrefs.system) shouldSendPush = false;
+                    if (!checkInAppPref('system')) shouldSendPush = false;
                     break;
                 case NotificationType.TaskUpdate:
-                    if (!inAppPrefs.taskUpdates) shouldSendPush = false;
+                    if (!checkInAppPref('taskUpdates')) shouldSendPush = false;
                     break;
             }
         }
 
         if (shouldSendPush) {
-            // Send to SendPulse API (Simulated or via credentials)
             await sendSendPulseNotification({
                 userId: notificationData.userId,
                 title: notificationData.title,
@@ -101,80 +143,118 @@ export const createNotification = async (notificationData: Omit<Notification, 'i
 };
 
 export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
-    const notifRef = doc(db, 'notifications', notificationId);
-    await updateDoc(notifRef, { isRead: true });
+    await supabase.from('notifications').update({ isRead: true }).eq('id', notificationId);
 };
 
 export const deleteNotification = async (notificationId: string): Promise<void> => {
-    await deleteDoc(doc(db, 'notifications', notificationId));
+    await supabase.from('notifications').delete().eq('id', notificationId);
 };
 
-export const runSystemHealthChecks = async () => {
-    console.log("Running system health checks...");
+export const runSystemHealthChecks = async (force: boolean = false) => {
+    const STORAGE_KEY = 'costpilot_last_health_check_ts';
+    const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+    
+    const lastRunStr = localStorage.getItem(STORAGE_KEY);
     const now = new Date();
+    const lastRun = lastRunStr ? new Date(parseInt(lastRunStr)) : new Date(0);
+
+    // If not forced, check if 12 hours have passed
+    if (!force && (now.getTime() - lastRun.getTime() < TWELVE_HOURS_MS)) {
+        console.log("System health checks ran recently (less than 12h ago). Skipping.");
+        return { success: true, message: "Checks recently run." };
+    }
+
+    console.log("Running system health checks...");
     const dayInMs = 1000 * 60 * 60 * 24;
-    const INACTIVITY_THRESHOLD_DAYS = 3; // Using 3 days for easier testing/demo purposes
+    const INACTIVITY_THRESHOLD_DAYS = 3; 
 
     let checksPerformed = 0;
 
-    // 1. Check Overdue Projects
+    // 1. Check Deadlines (Overdue, Due Today, Due Soon)
     try {
-        const projectsSnap = await getDocs(collection(db, 'projects'));
-        projectsSnap.forEach(async (pDoc) => {
-            const project = pDoc.data() as Project;
-            if (!project.endDate) return;
-            
-            const endDate = new Date(project.endDate);
-            
-            // Check if project is active and overdue
-            if (project.status !== ProjectStatus.Completed && endDate < now) {
+        const { data: projects } = await supabase.from('projects').select('*');
+        if (projects) {
+            for (const project of projects) {
+                if (!project.endDate) continue;
+                if (project.status === ProjectStatus.Completed || project.status === ProjectStatus.Rejected) continue;
+                
+                const endDate = new Date(project.endDate);
+                const diffTime = endDate.getTime() - now.getTime();
+                const diffDays = Math.ceil(diffTime / dayInMs); // Round up for days
+
                 if (project.teamLeader && project.teamLeader.id) {
-                    console.log(`Flagging overdue project: ${project.title}`);
-                    await createNotification({
-                        userId: project.teamLeader.id,
-                        title: 'Project Overdue Alert',
-                        message: `The project "${project.title}" was due on ${project.endDate}. Please review the status.`,
-                        type: NotificationType.Deadline,
-                        priority: NotificationPriority.High,
-                        link: `/projects/${pDoc.id}`
-                    });
-                    checksPerformed++;
+                    // Logic: Overdue (diffDays < 0)
+                    if (diffDays < 0) {
+                        console.log(`Flagging overdue project: ${project.title}`);
+                        await createNotification({
+                            userId: project.teamLeader.id,
+                            title: '🚨 IMMEDIATE ATTENTION: Project Overdue',
+                            message: `The project "${project.title}" was due on ${project.endDate}. Please review status immediately.`,
+                            type: NotificationType.Deadline,
+                            priority: NotificationPriority.Critical,
+                            link: `/projects/${project.id}`
+                        });
+                        checksPerformed++;
+                    }
+                    // Logic: Due Today (diffDays === 0)
+                    else if (diffDays === 0) {
+                         console.log(`Flagging due today project: ${project.title}`);
+                         await createNotification({
+                            userId: project.teamLeader.id,
+                            title: '⏰ Project Due Today',
+                            message: `The project "${project.title}" is due today!`,
+                            type: NotificationType.Deadline,
+                            priority: NotificationPriority.High,
+                            link: `/projects/${project.id}`
+                        });
+                        checksPerformed++;
+                    }
+                    // Logic: Due in 3 Days or less (but not today)
+                    else if (diffDays <= 3 && diffDays > 0) {
+                         console.log(`Flagging approaching deadline: ${project.title}`);
+                         await createNotification({
+                            userId: project.teamLeader.id,
+                            title: '⏳ Upcoming Deadline',
+                            message: `The project "${project.title}" is due in ${diffDays} day(s) (${project.endDate}).`,
+                            type: NotificationType.Deadline,
+                            priority: NotificationPriority.High,
+                            link: `/projects/${project.id}`
+                        });
+                        checksPerformed++;
+                    }
                 }
             }
-        });
+        }
     } catch (error) {
         console.error("Error checking deadlines:", error);
     }
 
     // 2. Check Inactive Users
     try {
-        const usersSnap = await getDocs(collection(db, 'users'));
-        usersSnap.forEach(async (uDoc) => {
-            const user = uDoc.data() as User;
-            
-            // Skip if no login record
-            if (!user.lastLogin) return;
-            
-            const lastLogin = new Date(user.lastLogin);
-            const diffMs = now.getTime() - lastLogin.getTime();
-            const diffDays = Math.floor(diffMs / dayInMs);
+        const { data: users } = await supabase.from('users').select('*');
+        if (users) {
+            users.forEach(async (user: User) => {
+                // Skip if no login record
+                if (!user.lastLogin || !user.id) return;
+                
+                const lastLogin = new Date(user.lastLogin);
+                const diffMs = now.getTime() - lastLogin.getTime();
+                const diffDays = Math.floor(diffMs / dayInMs);
 
-            if (diffDays >= INACTIVITY_THRESHOLD_DAYS) {
-                 console.log(`Flagging inactive user: ${user.name} (${diffDays} days)`);
-                 await createNotification({
-                    userId: uDoc.id,
-                    title: 'We Miss You!',
-                    message: `It's been ${diffDays} days since your last visit. Check your dashboard for updates.`,
-                    type: NotificationType.System,
-                    priority: NotificationPriority.Medium,
-                    // This will attempt to send Push/Email based on preferences
-                });
-                checksPerformed++;
-            }
-        });
+                if (diffDays >= INACTIVITY_THRESHOLD_DAYS) {
+                     // Only notify inactive users if we haven't bugged them recently? 
+                     // For simplicity, we just log this locally for now to avoid spam loop in this function 
+                     // since checking 'notification history' is complex here.
+                     // console.log(`User ${user.name} is inactive.`);
+                }
+            });
+        }
     } catch (error) {
          console.error("Error checking inactivity:", error);
     }
     
-    return { success: true, message: `Health checks completed. Action items processed.` };
+    // Mark as run
+    localStorage.setItem(STORAGE_KEY, now.getTime().toString());
+    
+    return { success: true, message: `Health checks completed. ${checksPerformed} alerts generated.` };
 };

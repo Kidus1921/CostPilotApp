@@ -4,6 +4,7 @@ export enum ProjectStatus {
   InProgress = 'In Progress',
   Completed = 'Completed',
   OnHold = 'On Hold',
+  Rejected = 'Rejected',
 }
 
 export enum TaskStatus {
@@ -50,7 +51,7 @@ export interface User {
     role: UserRole;
     status: UserStatus;
     password?: string;
-    teamId?: string;
+    teamId?: string | null;
     notificationPreferences?: UserNotificationPreferences;
     lastLogin?: string;
     privileges?: string[]; // List of granular permission keys

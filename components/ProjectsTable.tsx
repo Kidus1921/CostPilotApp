@@ -16,6 +16,7 @@ const StatusBadge: React.FC<{ status: ProjectStatus }> = ({ status }) => {
         [ProjectStatus.Completed]: 'bg-green-100 text-green-800 border border-green-200 dark:bg-green-900 dark:text-green-200 dark:border-green-700',
         [ProjectStatus.OnHold]: 'bg-yellow-100 text-yellow-800 border border-yellow-200 dark:bg-yellow-900 dark:text-yellow-200 dark:border-yellow-700',
         [ProjectStatus.Pending]: 'bg-gray-100 text-gray-800 border border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600',
+        [ProjectStatus.Rejected]: 'bg-red-100 text-red-800 border border-red-200 dark:bg-red-900 dark:text-red-200 dark:border-red-700',
     };
     return <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full shadow-sm ${colorMap[status]}`}>{status}</span>
 };
@@ -56,8 +57,8 @@ const ProjectsTable: React.FC<ProjectsTableProps> = ({ projects, onViewProject, 
     const getRowBackgroundStyle = (project: Project) => {
         const percentage = project.completionPercentage;
         
-        if (project.status === ProjectStatus.Completed) {
-            return {}; // Handled by class name (green background)
+        if (project.status === ProjectStatus.Completed || project.status === ProjectStatus.Rejected) {
+            return {}; // Handled by class name
         }
 
         // Using rgb(var(--color-brand-primary) / 0.1) allows the brand color to be used with 10% opacity
@@ -84,16 +85,21 @@ const ProjectsTable: React.FC<ProjectsTableProps> = ({ projects, onViewProject, 
                     <tbody className="bg-base-100 divide-y divide-base-200 dark:bg-gray-800 dark:divide-gray-700">
                         {projects.length > 0 ? projects.map(project => {
                             const isCompleted = project.status === ProjectStatus.Completed;
-                            const rowClass = isCompleted 
-                                ? 'bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30' 
-                                : 'hover:bg-gray-50 dark:hover:bg-gray-700/30';
+                            const isRejected = project.status === ProjectStatus.Rejected;
+                            
+                            let rowClass = 'hover:bg-gray-50 dark:hover:bg-gray-700/30';
+                            if (isCompleted) {
+                                rowClass = 'bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30';
+                            } else if (isRejected) {
+                                rowClass = 'bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30';
+                            }
 
                             return (
                                 <tr 
                                     key={project.id} 
                                     onClick={() => onViewProject(project.id!)} 
                                     className={`transition-all duration-200 cursor-pointer group ${rowClass}`}
-                                    style={!isCompleted ? getRowBackgroundStyle(project) : undefined}
+                                    style={!isCompleted && !isRejected ? getRowBackgroundStyle(project) : undefined}
                                 >
                                     <td className="px-6 py-4 whitespace-nowrap relative">
                                         <div className="text-sm font-bold text-base-content dark:text-gray-100 group-hover:text-brand-primary transition-colors">{project.title}</div>
@@ -118,7 +124,10 @@ const ProjectsTable: React.FC<ProjectsTableProps> = ({ projects, onViewProject, 
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium relative z-10">
                                         {canDelete && onDeleteProject && (
                                             <button 
-                                                onClick={(e) => {e.stopPropagation(); onDeleteProject(project);}} 
+                                                onClick={(e) => {
+                                                    e.stopPropagation(); 
+                                                    onDeleteProject(project);
+                                                }} 
                                                 className="text-gray-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
                                                 title="Delete Project"
                                             >

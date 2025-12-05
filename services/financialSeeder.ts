@@ -1,15 +1,20 @@
-import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { supabase } from '../supabaseClient';
 import { FinancialProject, FinancialProjectStatus, FinancialTask, FinancialTaskStatus } from '../types';
 
 export const seedFinancialData = async () => {
     console.log("Checking if financial data seeding is needed...");
-    const projectsCollection = collection(db, "financial_projects");
-    const snapshot = await getDocs(projectsCollection);
+    
+    const { count, error } = await supabase
+        .from('financial_projects')
+        .select('*', { count: 'exact', head: true });
 
-    if (snapshot.empty) {
+    if (error) {
+        console.error("Error checking financial data:", error);
+        return;
+    }
+
+    if (count === 0) {
         console.log("Financial database is empty. Seeding data...");
-        const batch = writeBatch(db);
 
         const project1Tasks: FinancialTask[] = [
             { id: 'ft1-1', name: 'Venue Booking', estimatedCost: 5000, actualCost: 5500, status: FinancialTaskStatus.Completed },
@@ -58,13 +63,13 @@ export const seedFinancialData = async () => {
             }
         ];
 
-        mockProjects.forEach(project => {
-            const newProjectRef = doc(projectsCollection);
-            batch.set(newProjectRef, project);
-        });
-
-        await batch.commit();
-        console.log("Financial data seeding complete.");
+        const { error: insertError } = await supabase.from('financial_projects').insert(mockProjects);
+        
+        if (insertError) {
+             console.error("Error seeding financial data:", insertError);
+        } else {
+             console.log("Financial data seeding complete.");
+        }
     } else {
         console.log("Financial database already contains data. Skipping seed.");
     }

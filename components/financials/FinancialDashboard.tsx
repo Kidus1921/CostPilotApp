@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
+import { supabase } from '../../supabaseClient';
 import { Project, ProjectStatus, TaskStatus } from '../../types';
 import ProjectOverviewCard from '../ProjectOverviewCard';
 import { FolderIcon, CheckCircleIcon, ClockIcon } from '../IconComponents';
@@ -12,24 +11,30 @@ const FinancialDashboard: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const q = query(collection(db, "projects"));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            setError(null);
-            const projectsData: Project[] = [];
-            querySnapshot.forEach((doc) => {
-                const data = doc.data() as Omit<Project, 'id' | 'spent'>;
-                const spent = (data.tasks || []).reduce((sum, task) => sum + (task.completionDetails?.actualCost || 0), 0);
-                projectsData.push({ id: doc.id, ...data, spent });
-            });
-            setProjects(projectsData);
+        const fetchProjects = async () => {
+            const { data, error } = await supabase.from('projects').select('*');
+            if (error) {
+                console.error("Financial dashboard fetch error:", error);
+                setError("Could not load financial overview data.");
+            } else if (data) {
+                const projectsData: Project[] = data.map((d: any) => {
+                    const spent = (d.tasks || []).reduce((sum: number, task: any) => sum + (task.completionDetails?.actualCost || 0), 0);
+                    return { ...d, spent };
+                });
+                setProjects(projectsData);
+            }
             setLoading(false);
-        }, (err) => {
-            console.error("Financial dashboard fetch error:", err);
-            setError("Could not load financial overview data.");
-            setLoading(false);
-        });
+        };
 
-        return () => unsubscribe();
+        fetchProjects();
+
+        const channel = supabase.channel('financial_dashboard')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, fetchProjects)
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     const summary = useMemo(() => {
