@@ -38,6 +38,7 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+    const [pushStatusMsg, setPushStatusMsg] = useState('');
     
     // Admin Broadcast State
     const [broadcastTitle, setBroadcastTitle] = useState('');
@@ -119,7 +120,6 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
     const handlePreferenceChange = useCallback((category: 'inApp' | 'email', key: string, value: boolean) => {
         setPreferences(prev => {
             if (!prev) return null;
-            // Ensure category exists before spreading (defensive)
             const categoryObj = prev[category] || defaultPreferences[category];
             return {
                 ...prev,
@@ -144,18 +144,24 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
 
         if (isChecked) {
              try {
+                 setPushStatusMsg("Requesting permission...");
                  const result = await subscribeToSendPulse();
+                 setPushStatusMsg(result.message);
                  if (!result.success) {
-                     // Revert if user cancels or fails
-                     // alert(result.message);
-                     console.warn(result.message);
+                     // Revert UI if failed
+                     setPreferences(prev => prev ? ({ ...prev, pushEnabled: false }) : null);
                  }
              } catch (e) {
                  console.error(e);
+                 setPushStatusMsg("Error connecting to push service.");
              }
         } else {
             unsubscribeFromSendPulse();
+            setPushStatusMsg("Notifications disabled.");
         }
+        
+        // Clear message after 3s
+        setTimeout(() => setPushStatusMsg(''), 3000);
     };
 
     const handleSave = async () => {
@@ -184,42 +190,11 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
         }
 
         if (Notification.permission === "granted") {
-            try {
-                // Check if Service Worker is ready to simulate a real push
-                const registration = await navigator.serviceWorker.getRegistration();
-                
-                if (registration && registration.active) {
-                     await registration.showNotification("CostPilot", {
-                        body: "Success! Push notifications are configured correctly via Service Worker.",
-                        // icon: "/logo192.png", // Removed to prevent 404
-                        vibrate: [200, 100, 200],
-                        tag: 'test-notification',
-                        requireInteraction: true
-                    } as any);
-                } else {
-                    // Fallback to local notification if SW isn't ready (e.g. in some dev environments)
-                     new Notification("CostPilot", {
-                        body: "Notifications are active (Local Mode). Service Worker not detected yet.",
-                        // icon: "/logo192.png" // Removed to prevent 404
-                    });
-                }
-            } catch (e) {
-                console.error("Test notification error:", e);
-                // Ultimate fallback
-                new Notification("CostPilot", {
-                    body: "Test notification successful.",
-                });
-            }
-        } else if (Notification.permission !== "denied") {
-            Notification.requestPermission().then(permission => {
-                if (permission === "granted") {
-                     new Notification("CostPilot", {
-                        body: "Permissions granted! You can now receive notifications.",
-                    });
-                }
+             new Notification("CostPilot", {
+                body: "This is a local test. If you see this, your browser is allowing notifications.",
             });
         } else {
-            alert("🚫 Notifications are blocked.\n\nTo enable:\n1. Click the Lock icon 🔒 in the address bar.\n2. Go to Site Settings > Permissions.\n3. Allow Notifications.");
+            alert("🚫 Notifications are blocked.\n\nPlease click the Lock icon in your address bar and Allow Notifications.");
         }
     };
 
@@ -306,19 +281,12 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
                         <h4 className="font-bold text-indigo-900 dark:text-indigo-200">Browser Push Notifications</h4>
                         <p className="text-sm text-indigo-700 dark:text-indigo-300 mb-2">Receive instant alerts via SendPulse.</p>
                         <div className="flex gap-2 items-center">
-                            {/* REQUIRED SendPulse Link - Using 'a' tag with preventDefault to satisfy SendPulse script requirements without navigating */}
-                            <a 
-                                href="#"
-                                className="sp_notify_prompt text-xs font-bold bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition-colors inline-block shadow-sm no-underline"
-                                onClick={(e) => e.preventDefault()}
-                            >
-                                Activate notifications
-                            </a>
+                            <span className="text-xs text-gray-500 italic">{pushStatusMsg}</span>
                             <button 
                                 onClick={handleTestNotification}
                                 className="text-xs bg-white border border-indigo-200 text-indigo-800 px-3 py-2 rounded hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-indigo-100 dark:hover:bg-gray-600 transition-colors"
                             >
-                                Test Send
+                                Test Local Alert
                             </button>
                         </div>
                     </div>
