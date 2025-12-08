@@ -22,7 +22,7 @@ const defaultPreferences: UserNotificationPreferences = {
     },
     priorityThreshold: NotificationPriority.Medium,
     projectSubscriptions: [],
-    pushEnabled: false
+    pushEnabled: true // Default to true to encourage push
 };
 
 // Helper to get user data
@@ -33,22 +33,32 @@ const getUser = async (userId: string): Promise<User | null> => {
 
 // Main function to create a notification
 export const createNotification = async (notificationData: Omit<Notification, 'id' | 'timestamp' | 'isRead'>): Promise<void> => {
+    console.log(`[Notification Service] Creating notification for user: ${notificationData.userId}`, notificationData);
+    
     try {
-        // 1. Add notification to Supabase
-        await supabase.from('notifications').insert([{
+        // 1. Add notification to Supabase (In-App)
+        const { error: dbError } = await supabase.from('notifications').insert([{
             ...notificationData,
             isRead: false,
             timestamp: new Date().toISOString()
         }]);
 
+        if (dbError) throw dbError;
+        console.log("[Notification Service] In-App notification saved to DB.");
+
         // 2. Fetch User Preferences
-        const targetUser = await getUser(notificationData.userId);
-        if (!targetUser) return;
+        let targetUser = await getUser(notificationData.userId);
+        let userPrefs: Partial<UserNotificationPreferences> = {};
+
+        if (targetUser) {
+            userPrefs = (targetUser.notificationPreferences || {}) as Partial<UserNotificationPreferences>;
+        } else {
+             // Fallback if user fetch fails (e.g. RLS issues), use defaults so we still try to push
+             console.warn(`[Notification Service] Could not fetch user ${notificationData.userId}. Using defaults.`);
+             userPrefs = defaultPreferences;
+        }
 
         // Merge user preferences with defaults to avoid undefined errors
-        const userPrefs = (targetUser.notificationPreferences || {}) as Partial<UserNotificationPreferences>;
-        
-        // Defensive coding: Ensure sub-objects exist
         const safeUserEmailPrefs = userPrefs.email || {};
         const safeUserInAppPrefs = userPrefs.inApp || {};
 
@@ -66,11 +76,7 @@ export const createNotification = async (notificationData: Omit<Notification, 'i
 
         // 3. Email Notifications
         let shouldSendEmail = false;
-        
-        // Safely check properties
-        const checkEmailPref = (prop: keyof UserNotificationPreferences['email']) => {
-            return emailPrefs && emailPrefs[prop] === true;
-        };
+        const checkEmailPref = (prop: keyof UserNotificationPreferences['email']) => emailPrefs && emailPrefs[prop] === true;
 
         switch (notificationData.type) {
             case NotificationType.ApprovalRequest:
@@ -91,7 +97,7 @@ export const createNotification = async (notificationData: Omit<Notification, 'i
                 break;
         }
 
-        if (shouldSendEmail) {
+        if (shouldSendEmail && targetUser?.email) {
             await sendEmailNotification({
                 to: targetUser.email,
                 subject: `[CostPilot] ${notificationData.title}`,
@@ -102,10 +108,7 @@ export const createNotification = async (notificationData: Omit<Notification, 'i
         // 4. Web Push Notifications (SendPulse)
         let shouldSendPush = pushEnabled || false;
         
-        // Safely check properties for push suppression
-        const checkInAppPref = (prop: keyof UserNotificationPreferences['inApp']) => {
-             return inAppPrefs && inAppPrefs[prop] === true;
-        };
+        const checkInAppPref = (prop: keyof UserNotificationPreferences['inApp']) => inAppPrefs && inAppPrefs[prop] === true;
 
         if (shouldSendPush) {
              switch (notificationData.type) {
@@ -128,6 +131,8 @@ export const createNotification = async (notificationData: Omit<Notification, 'i
             }
         }
 
+        console.log(`[Notification Service] Push allowed by user prefs: ${shouldSendPush}`);
+
         if (shouldSendPush) {
             await sendSendPulseNotification({
                 userId: notificationData.userId,
@@ -138,7 +143,7 @@ export const createNotification = async (notificationData: Omit<Notification, 'i
         }
 
     } catch (error) {
-        console.error("Error creating notification: ", error);
+        console.error("[Notification Service] Error creating notification: ", error);
     }
 };
 
@@ -166,8 +171,7 @@ export const runSystemHealthChecks = async (force: boolean = false) => {
 
     console.log("Running system health checks...");
     const dayInMs = 1000 * 60 * 60 * 24;
-    const INACTIVITY_THRESHOLD_DAYS = 3; 
-
+    
     let checksPerformed = 0;
 
     // 1. Check Deadlines (Overdue, Due Today, Due Soon)
@@ -182,12 +186,15 @@ export const runSystemHealthChecks = async (force: boolean = false) => {
                 const diffTime = endDate.getTime() - now.getTime();
                 const diffDays = Math.ceil(diffTime / dayInMs); // Round up for days
 
-                if (project.teamLeader && project.teamLeader.id) {
+                // Ensure we notify the team leader
+                const targetUserId = project.teamLeader?.id || (typeof project.teamLeader === 'string' ? project.teamLeader : null);
+
+                if (targetUserId) {
                     // Logic: Overdue (diffDays < 0)
                     if (diffDays < 0) {
                         console.log(`Flagging overdue project: ${project.title}`);
                         await createNotification({
-                            userId: project.teamLeader.id,
+                            userId: targetUserId,
                             title: '🚨 IMMEDIATE ATTENTION: Project Overdue',
                             message: `The project "${project.title}" was due on ${project.endDate}. Please review status immediately.`,
                             type: NotificationType.Deadline,
@@ -200,7 +207,7 @@ export const runSystemHealthChecks = async (force: boolean = false) => {
                     else if (diffDays === 0) {
                          console.log(`Flagging due today project: ${project.title}`);
                          await createNotification({
-                            userId: project.teamLeader.id,
+                            userId: targetUserId,
                             title: '⏰ Project Due Today',
                             message: `The project "${project.title}" is due today!`,
                             type: NotificationType.Deadline,
@@ -213,7 +220,7 @@ export const runSystemHealthChecks = async (force: boolean = false) => {
                     else if (diffDays <= 3 && diffDays > 0) {
                          console.log(`Flagging approaching deadline: ${project.title}`);
                          await createNotification({
-                            userId: project.teamLeader.id,
+                            userId: targetUserId,
                             title: '⏳ Upcoming Deadline',
                             message: `The project "${project.title}" is due in ${diffDays} day(s) (${project.endDate}).`,
                             type: NotificationType.Deadline,
@@ -227,30 +234,6 @@ export const runSystemHealthChecks = async (force: boolean = false) => {
         }
     } catch (error) {
         console.error("Error checking deadlines:", error);
-    }
-
-    // 2. Check Inactive Users
-    try {
-        const { data: users } = await supabase.from('users').select('*');
-        if (users) {
-            users.forEach(async (user: User) => {
-                // Skip if no login record
-                if (!user.lastLogin || !user.id) return;
-                
-                const lastLogin = new Date(user.lastLogin);
-                const diffMs = now.getTime() - lastLogin.getTime();
-                const diffDays = Math.floor(diffMs / dayInMs);
-
-                if (diffDays >= INACTIVITY_THRESHOLD_DAYS) {
-                     // Only notify inactive users if we haven't bugged them recently? 
-                     // For simplicity, we just log this locally for now to avoid spam loop in this function 
-                     // since checking 'notification history' is complex here.
-                     // console.log(`User ${user.name} is inactive.`);
-                }
-            });
-        }
-    } catch (error) {
-         console.error("Error checking inactivity:", error);
     }
     
     // Mark as run

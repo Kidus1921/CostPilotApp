@@ -64,7 +64,6 @@ export const getPushSubscriptionStatus = async (userId: string) => {
 
 /**
  * Requests permission for Web Push via SendPulse SDK AND links the ID to the Supabase User.
- * This ensures the user appears in the SendPulse dashboard as a subscriber.
  */
 export const subscribeToSendPulse = async (): Promise<{ success: boolean; message: string }> => {
     return new Promise((resolve) => {
@@ -77,27 +76,20 @@ export const subscribeToSendPulse = async (): Promise<{ success: boolean; messag
         console.log("Triggering SendPulse subscription...");
 
         // 2. Use SendPulse SDK to handle the subscription cycle
-        // This ensures the Service Worker is engaged and the Token is sent to SendPulse servers
         window.oSpP.push(['init']); 
         
-        // We attempt to get the ID. If the user hasn't subscribed yet, SendPulse will prompt them.
-        // If they have, it returns the ID.
-        
-        // Polling function to wait for the ID
         let attempts = 0;
-        const maxAttempts = 20; // Try for 10 seconds (20 * 500ms)
+        const maxAttempts = 20;
 
         const checkSubscription = setInterval(async () => {
             attempts++;
             
-            // Check native permission first
             if (Notification.permission === 'denied') {
                 clearInterval(checkSubscription);
                 resolve({ success: false, message: "Notifications are blocked in browser settings." });
                 return;
             }
 
-            // Ask SendPulse for the ID
             window.oSpP.push(['getID', async function(subscriberId: string) {
                 if (subscriberId) {
                     clearInterval(checkSubscription);
@@ -125,12 +117,8 @@ export const subscribeToSendPulse = async (): Promise<{ success: boolean; messag
                         resolve({ success: true, message: "Notifications active (Guest mode)." });
                     }
                 } else if (attempts >= maxAttempts) {
-                    // Timeout
                     clearInterval(checkSubscription);
-                    
-                    // If we timed out, force the prompt
                     if (Notification.permission === 'default') {
-                        // This forces the native browser prompt if SendPulse didn't trigger it
                         Notification.requestPermission(); 
                         resolve({ success: false, message: "Please click 'Allow' on the browser prompt and try again." });
                     } else {
@@ -142,22 +130,13 @@ export const subscribeToSendPulse = async (): Promise<{ success: boolean; messag
     });
 };
 
-/**
- * Unsubscribes from SendPulse notifications.
- */
 export const unsubscribeFromSendPulse = async (): Promise<void> => {
      console.log("User requested unsubscribe.");
-     
      const { data: { user } } = await supabase.auth.getUser();
      if (user) {
-         // Remove from our DB
          await supabase.from('push_subscribers').delete().eq('user_id', user.id);
      }
-     
-     // Note: We cannot programmatically revoke browser permission (user must do it manually),
-     // but we can remove the link in our database so we stop sending to them.
 }
-
 
 interface SendPushPayload {
     userId: string;
@@ -168,7 +147,6 @@ interface SendPushPayload {
 
 /**
  * Sends a Web Push Notification via SendPulse REST API.
- * This is the function that allows OFFLINE sending (Server-to-Server).
  */
 export const sendSendPulseNotification = async (payload: SendPushPayload): Promise<void> => {
     const clientId = testClientId;
@@ -182,12 +160,16 @@ export const sendSendPulseNotification = async (payload: SendPushPayload): Promi
         .single();
 
     if (!subscriberData?.subscriber_id) {
-        console.log(`[SendPulse] Skipped. No registered device found for User ${payload.userId}`);
+        console.log(`[SendPulse] Skipped API push. No registered device found for User ${payload.userId}`);
         
-        // Fallback: If testing locally with self, show native notification (works only if online)
+        // Fallback: If testing locally with self, show native notification (works if browser is open)
         const { data: { user } } = await supabase.auth.getUser();
         if (user && user.id === payload.userId && Notification.permission === "granted") {
-             new Notification(payload.title, { body: payload.message });
+             console.log("[SendPulse] Showing fallback browser notification.");
+             new Notification(payload.title, { 
+                 body: payload.message,
+                 icon: '/favicon.ico' // Ensure this exists or remove
+             });
         }
         return;
     }
@@ -195,9 +177,6 @@ export const sendSendPulseNotification = async (payload: SendPushPayload): Promi
     const targetSubscriberId = subscriberData.subscriber_id;
 
     if (!clientId || !clientSecret) {
-        // If we don't have API keys loaded in client (Admin Broadcast), we assume 
-        // this function is being called or mocked. 
-        // In Production, this logic usually happens in the Supabase Edge Function.
         console.log(`[Mock SendPulse] Would send to Subscriber ID ${targetSubscriberId}: ${payload.title}`);
         return;
     }
@@ -223,8 +202,6 @@ export const sendSendPulseNotification = async (payload: SendPushPayload): Promi
         }
 
         // 3. Send to Specific Website Subscriber
-        // Docs: https://sendpulse.com/integrations/api/push
-        // We use the 'tasks' endpoint to send to a specific list of subscriber IDs (even if just 1)
         const pushResponse = await fetch('https://api.sendpulse.com/push/tasks', {
              method: 'POST',
              headers: {
@@ -234,13 +211,12 @@ export const sendSendPulseNotification = async (payload: SendPushPayload): Promi
              body: JSON.stringify({
                  title: payload.title,
                  body: payload.message,
-                 // website_id is optional if you have only 1 site, but good to be specific if you have multiple
                  ttl: 86400, // Live for 24 hours
                  link: payload.url,
                  filter: {
                      variable_name: 'id', 
                      operator: 'or',
-                     value: [targetSubscriberId] // SendPulse accepts the ID here to target specific user
+                     value: [targetSubscriberId]
                  }
              })
         });
