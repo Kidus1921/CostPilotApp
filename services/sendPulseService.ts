@@ -24,69 +24,121 @@ export const setSendPulseCredentials = (id: string, secret: string) => {
  * Initializes SendPulse logic.
  */
 export const initSendPulse = (userId: string) => {
-    // We just ensure the script is loaded here. 
-    // The actual linking happens when the user clicks "Activate" in settings.
+    // Ensuring the SDK object exists
     if (!window.oSpP) {
-        console.log("SendPulse SDK not loaded yet.");
+        window.oSpP = [];
     }
 };
 
 /**
- * Requests permission for Web Push via SendPulse AND links the ID to the Supabase User.
+ * Checks the status of the push subscription stack.
+ * Used for Diagnostics.
+ */
+export const getPushSubscriptionStatus = async (userId: string) => {
+    const status = {
+        permission: Notification.permission,
+        sdkLoaded: !!window.oSpP,
+        serviceWorker: false,
+        dbLinked: false,
+        subscriberId: null as string | null
+    };
+
+    // Check SW
+    if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration();
+        status.serviceWorker = !!registration;
+    }
+
+    // Check DB
+    if (userId) {
+        const { data } = await supabase.from('push_subscribers').select('subscriber_id').eq('user_id', userId).single();
+        if (data) {
+            status.dbLinked = true;
+            status.subscriberId = data.subscriber_id;
+        }
+    }
+
+    return status;
+};
+
+
+/**
+ * Requests permission for Web Push via SendPulse SDK AND links the ID to the Supabase User.
+ * This ensures the user appears in the SendPulse dashboard as a subscriber.
  */
 export const subscribeToSendPulse = async (): Promise<{ success: boolean; message: string }> => {
     return new Promise((resolve) => {
         // 1. Check if SendPulse SDK is loaded
         if (!window.oSpP) {
-            resolve({ success: false, message: "Push service not ready. Please refresh the page." });
+            resolve({ success: false, message: "Push service not ready. Check your internet connection." });
             return;
         }
 
         console.log("Triggering SendPulse subscription...");
 
-        // 2. Request Browser Permission
-        Notification.requestPermission().then((permission) => {
-            if (permission === 'granted') {
-                
-                // 3. Get the SendPulse Subscriber ID
-                // We assume the SendPulse script (from index.html) has initialized `oSpP`
-                window.oSpP.push(['getID', async function(subscriberId: string) {
-                    if (subscriberId) {
-                        console.log("SendPulse ID received:", subscriberId);
-                        
-                        // 4. Link to Supabase User
-                        const { data: { user } } = await supabase.auth.getUser();
-                        
-                        if (user) {
-                            const { error } = await supabase.from('push_subscribers').upsert({
-                                user_id: user.id,
-                                subscriber_id: subscriberId,
-                                platform: 'sendpulse',
-                                created_at: new Date().toISOString()
-                            }, { onConflict: 'user_id' });
+        // 2. Use SendPulse SDK to handle the subscription cycle
+        // This ensures the Service Worker is engaged and the Token is sent to SendPulse servers
+        window.oSpP.push(['init']); 
+        
+        // We attempt to get the ID. If the user hasn't subscribed yet, SendPulse will prompt them.
+        // If they have, it returns the ID.
+        
+        // Polling function to wait for the ID
+        let attempts = 0;
+        const maxAttempts = 20; // Try for 10 seconds (20 * 500ms)
 
-                            if (error) {
-                                console.error("Failed to link push sub to user:", error);
-                                resolve({ success: true, message: "Notifications allowed, but server linking failed." });
-                            } else {
-                                console.log("Device successfully linked to User ID:", user.id);
-                                resolve({ success: true, message: "Notifications active and device linked." });
-                            }
-                        } else {
-                            resolve({ success: true, message: "Notifications allowed (Guest mode)." });
-                        }
-
-                    } else {
-                        console.warn("Permission granted, but no Subscriber ID returned yet. (It might take a moment)");
-                        resolve({ success: true, message: "Notifications allowed. Device syncing..." });
-                    }
-                }]);
-
-            } else {
-                console.warn("Notification permission denied.");
-                resolve({ success: false, message: "Notification permission denied. Please enable it in browser settings." });
+        const checkSubscription = setInterval(async () => {
+            attempts++;
+            
+            // Check native permission first
+            if (Notification.permission === 'denied') {
+                clearInterval(checkSubscription);
+                resolve({ success: false, message: "Notifications are blocked in browser settings." });
+                return;
             }
-        });
+
+            // Ask SendPulse for the ID
+            window.oSpP.push(['getID', async function(subscriberId: string) {
+                if (subscriberId) {
+                    clearInterval(checkSubscription);
+                    console.log("SendPulse ID received:", subscriberId);
+
+                    // 3. Link to Supabase User
+                    const { data: { user } } = await supabase.auth.getUser();
+                    
+                    if (user) {
+                        const { error } = await supabase.from('push_subscribers').upsert({
+                            user_id: user.id,
+                            subscriber_id: subscriberId,
+                            platform: 'sendpulse',
+                            created_at: new Date().toISOString()
+                        }, { onConflict: 'user_id' });
+
+                        if (error) {
+                            console.error("Failed to link push sub to user:", error);
+                            resolve({ success: true, message: "Subscribed, but database linking failed." });
+                        } else {
+                            console.log("Device successfully linked to User ID:", user.id);
+                            resolve({ success: true, message: "Notifications active and linked." });
+                        }
+                    } else {
+                        resolve({ success: true, message: "Notifications active (Guest mode)." });
+                    }
+                } else if (attempts >= maxAttempts) {
+                    // Timeout
+                    clearInterval(checkSubscription);
+                    
+                    // If we timed out, force the prompt
+                    if (Notification.permission === 'default') {
+                        // This forces the native browser prompt if SendPulse didn't trigger it
+                        Notification.requestPermission(); 
+                        resolve({ success: false, message: "Please click 'Allow' on the browser prompt and try again." });
+                    } else {
+                        resolve({ success: false, message: "Could not retrieve Subscriber ID from SendPulse." });
+                    }
+                }
+            }]);
+        }, 500);
     });
 };
 
@@ -95,11 +147,15 @@ export const subscribeToSendPulse = async (): Promise<{ success: boolean; messag
  */
 export const unsubscribeFromSendPulse = async (): Promise<void> => {
      console.log("User requested unsubscribe.");
-     // Ideally, we would also remove the row from 'push_subscribers' here
+     
      const { data: { user } } = await supabase.auth.getUser();
      if (user) {
+         // Remove from our DB
          await supabase.from('push_subscribers').delete().eq('user_id', user.id);
      }
+     
+     // Note: We cannot programmatically revoke browser permission (user must do it manually),
+     // but we can remove the link in our database so we stop sending to them.
 }
 
 
@@ -112,6 +168,7 @@ interface SendPushPayload {
 
 /**
  * Sends a Web Push Notification via SendPulse REST API.
+ * This is the function that allows OFFLINE sending (Server-to-Server).
  */
 export const sendSendPulseNotification = async (payload: SendPushPayload): Promise<void> => {
     const clientId = testClientId;
@@ -127,7 +184,7 @@ export const sendSendPulseNotification = async (payload: SendPushPayload): Promi
     if (!subscriberData?.subscriber_id) {
         console.log(`[SendPulse] Skipped. No registered device found for User ${payload.userId}`);
         
-        // Fallback: If testing locally with self, show native notification
+        // Fallback: If testing locally with self, show native notification (works only if online)
         const { data: { user } } = await supabase.auth.getUser();
         if (user && user.id === payload.userId && Notification.permission === "granted") {
              new Notification(payload.title, { body: payload.message });
@@ -138,6 +195,9 @@ export const sendSendPulseNotification = async (payload: SendPushPayload): Promi
     const targetSubscriberId = subscriberData.subscriber_id;
 
     if (!clientId || !clientSecret) {
+        // If we don't have API keys loaded in client (Admin Broadcast), we assume 
+        // this function is being called or mocked. 
+        // In Production, this logic usually happens in the Supabase Edge Function.
         console.log(`[Mock SendPulse] Would send to Subscriber ID ${targetSubscriberId}: ${payload.title}`);
         return;
     }
@@ -164,6 +224,7 @@ export const sendSendPulseNotification = async (payload: SendPushPayload): Promi
 
         // 3. Send to Specific Website Subscriber
         // Docs: https://sendpulse.com/integrations/api/push
+        // We use the 'tasks' endpoint to send to a specific list of subscriber IDs (even if just 1)
         const pushResponse = await fetch('https://api.sendpulse.com/push/tasks', {
              method: 'POST',
              headers: {
@@ -173,23 +234,19 @@ export const sendSendPulseNotification = async (payload: SendPushPayload): Promi
              body: JSON.stringify({
                  title: payload.title,
                  body: payload.message,
-                 website_id: 0, // Optional if you have only one website, or fetch via /push/websites
-                 ttl: 86400,
-                 stretch_time: 0,
+                 // website_id is optional if you have only 1 site, but good to be specific if you have multiple
+                 ttl: 86400, // Live for 24 hours
                  link: payload.url,
-                 // TARGETING SPECIFIC USER:
                  filter: {
-                     variable_name: 'id', // This assumes SendPulse internal ID
+                     variable_name: 'id', 
                      operator: 'or',
-                     value: [Number(targetSubscriberId)] // SendPulse often treats IDs as numbers
+                     value: [targetSubscriberId] // SendPulse accepts the ID here to target specific user
                  }
-                 // Note: Sending to a specific subscriber ID usually requires the 'filter' 
-                 // logic or the specific /push/websites/{id}/users endpoint depending on API version.
-                 // For simplicity in this mockup, we are logging the intent.
              })
         });
-
-        console.log(`[SendPulse] API Request sent for subscriber ${targetSubscriberId}`);
+        
+        const pushResult = await pushResponse.json();
+        console.log(`[SendPulse] API Response:`, pushResult);
 
     } catch (error) {
         console.error("Failed to interact with SendPulse API:", error);

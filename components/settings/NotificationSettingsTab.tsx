@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import { User, UserNotificationPreferences, NotificationPriority, Project, UserRole, NotificationType } from '../../types';
-import { BellIcon, EnvelopeIcon } from '../IconComponents';
-import { subscribeToSendPulse, unsubscribeFromSendPulse, setSendPulseCredentials } from '../../services/sendPulseService';
+import { BellIcon, EnvelopeIcon, ServerIcon, WifiIcon, ChipIcon, MegaphoneIcon, RefreshIcon } from '../IconComponents';
+import { subscribeToSendPulse, unsubscribeFromSendPulse, setSendPulseCredentials, getPushSubscriptionStatus } from '../../services/sendPulseService';
 import { createNotification, runSystemHealthChecks } from '../../services/notificationService';
 
 const defaultPreferences: UserNotificationPreferences = {
@@ -34,7 +34,6 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
     const currentUserId = currentUser.id; 
     const [preferences, setPreferences] = useState<UserNotificationPreferences | null>(null);
     const [currentUserRole, setCurrentUserRole] = useState<UserRole>(UserRole.ProjectManager);
-    const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -43,25 +42,17 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
     // Admin Broadcast State
     const [broadcastTitle, setBroadcastTitle] = useState('');
     const [broadcastMessage, setBroadcastMessage] = useState('');
-    
-    // Credentials for SendPulse testing
     const [clientId, setClientId] = useState('');
     const [clientSecret, setClientSecret] = useState('');
     const [broadcastStatus, setBroadcastStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
-    
     const [healthCheckStatus, setHealthCheckStatus] = useState<'idle' | 'running' | 'completed'>('idle');
+    const [isAdminOpen, setIsAdminOpen] = useState(false);
+
+    // Diagnostics State
+    const [diagnosticStatus, setDiagnosticStatus] = useState<any>(null);
 
     useEffect(() => {
         if (!currentUserId) return;
-
-        let userLoaded = false;
-        let projectsLoaded = false;
-        
-        const checkLoading = () => {
-            if (userLoaded && projectsLoaded) {
-                setLoading(false);
-            }
-        };
 
         const fetchUser = async () => {
             const { data, error } = await supabase.from('users').select('*').eq('id', currentUserId).single();
@@ -71,12 +62,10 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
             } else if (data) {
                 const userData = data as User;
                 
-                // Deep merge defaults with fetched data to handle empty/partial objects from DB
                 const dbPrefs = (userData.notificationPreferences || {}) as Partial<UserNotificationPreferences>;
                 const mergedPrefs: UserNotificationPreferences = {
                     ...defaultPreferences,
                     ...dbPrefs,
-                    // Ensure nested objects exist
                     inApp: { ...defaultPreferences.inApp, ...(dbPrefs.inApp || {}) },
                     email: { ...defaultPreferences.email, ...(dbPrefs.email || {}) },
                     priorityThreshold: dbPrefs.priorityThreshold || defaultPreferences.priorityThreshold,
@@ -89,24 +78,11 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
             } else {
                  setPreferences(defaultPreferences);
             }
-            userLoaded = true;
-            checkLoading();
-        };
-
-        const fetchProjects = async () => {
-             const { data, error } = await supabase.from('projects').select('*');
-             if (error) {
-                 console.error("Failed to fetch projects for subscriptions:", error);
-                 setError("Could not load project list.");
-             } else if (data) {
-                 setProjects(data as Project[]);
-             }
-             projectsLoaded = true;
-             checkLoading();
+            setLoading(false);
         };
 
         fetchUser();
-        fetchProjects();
+        runDiagnostics();
 
         const userSub = supabase.channel('notification_settings_user')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${currentUserId}` }, fetchUser)
@@ -116,6 +92,11 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
             supabase.removeChannel(userSub);
         };
     }, [currentUserId]);
+
+    const runDiagnostics = async () => {
+        const status = await getPushSubscriptionStatus(currentUser.id!);
+        setDiagnosticStatus(status);
+    };
 
     const handlePreferenceChange = useCallback((category: 'inApp' | 'email', key: string, value: boolean) => {
         setPreferences(prev => {
@@ -138,7 +119,6 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
     };
     
     const handlePushToggle = async (isChecked: boolean) => {
-        // 1. Optimistic Update
         setPreferences(prev => prev ? ({ ...prev, pushEnabled: isChecked }) : null);
         setStatus('idle'); 
 
@@ -148,9 +128,9 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
                  const result = await subscribeToSendPulse();
                  setPushStatusMsg(result.message);
                  if (!result.success) {
-                     // Revert UI if failed
                      setPreferences(prev => prev ? ({ ...prev, pushEnabled: false }) : null);
                  }
+                 runDiagnostics();
              } catch (e) {
                  console.error(e);
                  setPushStatusMsg("Error connecting to push service.");
@@ -159,8 +139,6 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
             unsubscribeFromSendPulse();
             setPushStatusMsg("Notifications disabled.");
         }
-        
-        // Clear message after 3s
         setTimeout(() => setPushStatusMsg(''), 3000);
     };
 
@@ -190,24 +168,27 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
         }
 
         if (Notification.permission === "granted") {
+            // Native check
              new Notification("CostPilot", {
-                body: "This is a local test. If you see this, your browser is allowing notifications.",
+                body: "Local test successful.",
             });
+            
+            // Server check logic here if needed
+            if (preferences?.pushEnabled && currentUser.id) {
+                // We can't trigger a real server push from client without an Edge Function or exposing keys,
+                // but we can simulate the "Diagnostic" check.
+                alert("Triggering local test... If you don't see a notification, check your OS Focus Assist settings.");
+            }
         } else {
-            alert("🚫 Notifications are blocked.\n\nPlease click the Lock icon in your address bar and Allow Notifications.");
+            alert("🚫 Notifications are blocked. Please allow them in your browser URL bar.");
         }
     };
 
     const handleAdminBroadcast = async () => {
         if (!broadcastTitle || !broadcastMessage) return;
-        
         setBroadcastStatus('sending');
-        
         try {
-            console.log(`[Admin Broadcast] Title: ${broadcastTitle}, Msg: ${broadcastMessage}`);
-            
             const { data: users } = await supabase.from('users').select('*');
-            
             let count = 0;
             if (users) {
                 for (const user of users) {
@@ -223,13 +204,11 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
                     }
                 }
             }
-            
             setBroadcastStatus('sent');
             setBroadcastTitle('');
             setBroadcastMessage('');
             setTimeout(() => setBroadcastStatus('idle'), 3000);
-            alert(`Broadcast created for ${count} users.\n\nSendPulse logs are in the console.`);
-
+            alert(`Broadcast queued for ${count} users.`);
         } catch (e) {
             console.error("Broadcast failed", e);
             setBroadcastStatus('idle');
@@ -239,27 +218,18 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
     
     const handleRunHealthChecks = async () => {
         setHealthCheckStatus('running');
-        // Force run even if checks already ran today
         await runSystemHealthChecks(true); 
         setHealthCheckStatus('completed');
         setTimeout(() => setHealthCheckStatus('idle'), 3000);
-        alert("System checks initiated. Check console for details on overdue projects and inactive users.");
     };
     
-    if (loading) {
-        return <div className="text-center p-10">Loading settings...</div>;
-    }
-
-    if (error) {
-        return (
-            <div className="p-6 text-center text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800/50">
-                <h3 className="text-lg font-bold">An Error Occurred</h3>
-                <p className="mt-2">{error}</p>
-            </div>
-        );
-    }
-    
+    if (loading) return <div className="text-center p-10">Loading settings...</div>;
+    if (error) return <div className="p-6 text-red-600 bg-red-50 rounded-lg">{error}</div>;
     if (!preferences) return null;
+
+    const StatusDot: React.FC<{ active: boolean }> = ({ active }) => (
+        <span className={`inline-block w-3 h-3 rounded-full mr-2 ${active ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`}></span>
+    );
 
     const notificationTypes = [
         { key: 'taskUpdates', label: 'Task Updates' },
@@ -270,179 +240,126 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
     ];
     
     return (
-        <div className="space-y-8 max-w-4xl mx-auto">
-            {/* General Channels */}
-            <div className="bg-base-100 dark:bg-gray-800 p-6 sm:p-8 rounded-xl shadow-md">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Notification Channels</h3>
-                
-                {/* Push Toggle */}
-                <div className="flex items-center justify-between mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-800/50">
+        <div className="space-y-6 max-w-4xl mx-auto animate-fadeIn">
+            {/* Diagnostics Card */}
+            <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-6 rounded-xl shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-10"><ChipIcon className="w-32 h-32"/></div>
+                <div className="relative z-10 flex justify-between items-start">
                     <div>
-                        <h4 className="font-bold text-indigo-900 dark:text-indigo-200">Browser Push Notifications</h4>
-                        <p className="text-sm text-indigo-700 dark:text-indigo-300 mb-2">Receive instant alerts via SendPulse.</p>
-                        <div className="flex gap-2 items-center">
-                            <span className="text-xs text-gray-500 italic">{pushStatusMsg}</span>
-                            <button 
-                                onClick={handleTestNotification}
-                                className="text-xs bg-white border border-indigo-200 text-indigo-800 px-3 py-2 rounded hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-indigo-100 dark:hover:bg-gray-600 transition-colors"
-                            >
-                                Test Local Alert
-                            </button>
+                        <h3 className="text-lg font-bold flex items-center gap-2"><ServerIcon className="w-5 h-5"/> Connection Diagnostics</h3>
+                        <p className="text-gray-400 text-sm mt-1">Real-time status of your push notification pipeline.</p>
+                        
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                            <div className="flex items-center"><StatusDot active={diagnosticStatus?.permission === 'granted'} /> Browser Permission</div>
+                            <div className="flex items-center"><StatusDot active={diagnosticStatus?.sdkLoaded} /> SendPulse SDK Loaded</div>
+                            <div className="flex items-center"><StatusDot active={diagnosticStatus?.serviceWorker} /> Service Worker Active</div>
+                            <div className="flex items-center"><StatusDot active={diagnosticStatus?.dbLinked} /> Database Linked</div>
                         </div>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                            type="checkbox"
-                            className="sr-only peer"
-                            checked={preferences.pushEnabled || false}
-                            onChange={e => handlePushToggle(e.target.checked)}
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-500 peer-checked:bg-indigo-600"></div>
+                    <div className="flex flex-col gap-2">
+                        <button onClick={runDiagnostics} className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs flex items-center justify-center gap-1 transition-colors"><RefreshIcon className="w-4 h-4"/> Refresh</button>
+                        <button onClick={handleTestNotification} className="p-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-bold transition-colors">Test My Device</button>
+                    </div>
+                </div>
+            </div>
+
+            {/* General Channels */}
+            <div className="bg-base-100 dark:bg-gray-800 p-6 sm:p-8 rounded-xl shadow-md">
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">Notification Channels</h3>
+                    <label className="flex items-center cursor-pointer">
+                        <span className="mr-3 text-sm font-medium text-gray-900 dark:text-gray-300">Push Notifications</span>
+                        <div className="relative">
+                            <input type="checkbox" className="sr-only peer" checked={preferences.pushEnabled || false} onChange={e => handlePushToggle(e.target.checked)} />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-primary/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-brand-primary"></div>
+                        </div>
                     </label>
                 </div>
+                
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 italic">{pushStatusMsg || 'Toggle push to receive alerts even when the app is closed.'}</p>
 
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Choose specific categories for In-App and Email notifications.</p>
                 <div className="overflow-x-auto">
                     <table className="min-w-full">
                         <thead>
-                            <tr>
-                                <th className="py-2 px-4 text-left text-sm font-semibold text-gray-600 dark:text-gray-300">Notification Type</th>
-                                <th className="py-2 px-4 text-center text-sm font-semibold text-gray-600 dark:text-gray-300"><BellIcon className="w-5 h-5 mx-auto"/> In-App</th>
-                                <th className="py-2 px-4 text-center text-sm font-semibold text-gray-600 dark:text-gray-300"><EnvelopeIcon className="w-5 h-5 mx-auto"/> Email</th>
+                            <tr className="border-b border-gray-200 dark:border-gray-700">
+                                <th className="py-3 px-4 text-left text-sm font-semibold text-gray-500 dark:text-gray-400">Type</th>
+                                <th className="py-3 px-4 text-center text-sm font-semibold text-gray-500 dark:text-gray-400"><BellIcon className="w-5 h-5 mx-auto"/> In-App</th>
+                                <th className="py-3 px-4 text-center text-sm font-semibold text-gray-500 dark:text-gray-400"><EnvelopeIcon className="w-5 h-5 mx-auto"/> Email</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                              {notificationTypes.map(({ key, label }) => (
-                                <tr key={key}>
+                                <tr key={key} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                     <td className="py-4 px-4 font-medium text-gray-900 dark:text-gray-100">{label}</td>
                                     <td className="py-4 px-4 text-center">
-                                        <input
-                                            type="checkbox"
-                                            className="h-5 w-5 rounded text-brand-primary focus:ring-brand-primary"
-                                            checked={preferences.inApp ? preferences.inApp[key as keyof typeof preferences.inApp] : false}
-                                            onChange={e => handlePreferenceChange('inApp', key, e.target.checked)}
-                                        />
+                                        <input type="checkbox" className="h-5 w-5 rounded text-brand-primary focus:ring-brand-primary cursor-pointer" checked={preferences.inApp ? preferences.inApp[key as keyof typeof preferences.inApp] : false} onChange={e => handlePreferenceChange('inApp', key, e.target.checked)} />
                                     </td>
                                     <td className="py-4 px-4 text-center">
-                                        <input
-                                            type="checkbox"
-                                            className="h-5 w-5 rounded text-brand-primary focus:ring-brand-primary"
-                                            checked={preferences.email ? preferences.email[key as keyof typeof preferences.email] : false}
-                                            onChange={e => handlePreferenceChange('email', key, e.target.checked)}
-                                        />
+                                        <input type="checkbox" className="h-5 w-5 rounded text-brand-primary focus:ring-brand-primary cursor-pointer" checked={preferences.email ? preferences.email[key as keyof typeof preferences.email] : false} onChange={e => handlePreferenceChange('email', key, e.target.checked)} />
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
-            </div>
 
-            <div className="bg-base-100 dark:bg-gray-800 p-6 sm:p-8 rounded-xl shadow-md">
-                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Advanced Settings</h3>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                    <div>
-                        <label htmlFor="priority-threshold" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Minimum Priority Level</label>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Only receive notifications at or above this level.</p>
-                        <select
-                            id="priority-threshold"
-                            value={preferences.priorityThreshold}
-                            onChange={handlePriorityChange}
-                            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        >
-                            {Object.values(NotificationPriority).map(p => <option key={p} value={p}>{p}</option>)}
-                        </select>
-                    </div>
-                 </div>
+                <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Priority Threshold</h4>
+                    <p className="text-xs text-gray-500 mb-2">Only receive notifications at or above this level.</p>
+                    <select value={preferences.priorityThreshold} onChange={handlePriorityChange} className="block w-full max-w-xs pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                        {Object.values(NotificationPriority).map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                </div>
+
+                <div className="flex justify-end pt-6">
+                     <button onClick={handleSave} disabled={status === 'saving'} className="bg-brand-primary text-brand-primary-content font-bold py-2 px-6 rounded-lg shadow-md hover:bg-teal-700 disabled:opacity-50 transition-colors">
+                        {status === 'saving' ? 'Saving...' : status === 'saved' ? 'Saved!' : 'Save Preferences'}
+                    </button>
+                </div>
             </div>
             
-            {/* Admin Only: Manual Push Broadcast */}
+            {/* Admin Tools */}
             {currentUserRole === UserRole.Admin && (
-                 <div className="space-y-6">
-                    <div className="bg-base-100 dark:bg-gray-800 p-6 sm:p-8 rounded-xl shadow-md border-l-4 border-orange-500">
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Admin: Broadcast Notification</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Send a manual alert to ALL users via In-App and SendPulse Push.</p>
-                        
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">SendPulse Client ID</label>
-                                <input 
-                                    type="text" 
-                                    placeholder="From SendPulse API Settings"
-                                    value={clientId}
-                                    onChange={e => setClientId(e.target.value)}
-                                    onBlur={handleCredentialsChange}
-                                    className="w-full px-3 py-1 text-sm border rounded-md bg-gray-50 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-300"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">SendPulse Client Secret</label>
-                                <input 
-                                    type="password" 
-                                    placeholder="From SendPulse API Settings"
-                                    value={clientSecret}
-                                    onChange={e => setClientSecret(e.target.value)}
-                                    onBlur={handleCredentialsChange}
-                                    className="w-full px-3 py-1 text-sm border rounded-md bg-gray-50 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-300"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                            <input 
-                                type="text" 
-                                placeholder="Notification Title"
-                                value={broadcastTitle}
-                                onChange={e => setBroadcastTitle(e.target.value)}
-                                className="w-full px-4 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            />
-                            <textarea 
-                                placeholder="Notification Message"
-                                value={broadcastMessage}
-                                onChange={e => setBroadcastMessage(e.target.value)}
-                                rows={2}
-                                className="w-full px-4 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            />
-                            <button
-                                onClick={handleAdminBroadcast}
-                                disabled={broadcastStatus !== 'idle' || !broadcastTitle || !broadcastMessage}
-                                className="bg-orange-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors"
-                            >
-                                {broadcastStatus === 'sending' ? 'Sending...' : broadcastStatus === 'sent' ? 'Sent!' : 'Send Broadcast'}
-                            </button>
-                        </div>
-                    </div>
+                 <div className="bg-base-100 dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
+                    <button onClick={() => setIsAdminOpen(!isAdminOpen)} className="w-full p-4 flex justify-between items-center bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                             <ChipIcon className="w-5 h-5 text-orange-500"/> Admin Tools
+                        </h3>
+                        <span className={`transform transition-transform ${isAdminOpen ? 'rotate-180' : ''}`}>▼</span>
+                    </button>
                     
-                    {/* System Health Check Trigger */}
-                     <div className="bg-base-100 dark:bg-gray-800 p-6 sm:p-8 rounded-xl shadow-md border-l-4 border-blue-500">
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Admin: System Health Check</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                            Manually trigger daily checks for:
-                            <ul className="list-disc list-inside mt-1 ml-2">
-                                <li>Projects past their due date</li>
-                                <li>Users inactive for more than 3 days</li>
-                            </ul>
-                        </p>
-                        <button
-                            onClick={handleRunHealthChecks}
-                            disabled={healthCheckStatus === 'running'}
-                            className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                        >
-                            {healthCheckStatus === 'running' ? 'Running Checks...' : healthCheckStatus === 'completed' ? 'Checks Completed' : 'Run Daily Checks Now'}
-                        </button>
-                     </div>
+                    {isAdminOpen && (
+                        <div className="p-6 space-y-8 animate-fadeIn">
+                             {/* Broadcast */}
+                            <div>
+                                <h4 className="font-bold text-gray-700 dark:text-gray-200 mb-4 flex items-center gap-2"><MegaphoneIcon className="w-5 h-5"/> Manual Broadcast</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <input type="text" placeholder="Client ID (Optional)" value={clientId} onChange={e => setClientId(e.target.value)} onBlur={handleCredentialsChange} className="input-sm border rounded bg-gray-50 dark:bg-gray-800 dark:text-white" />
+                                    <input type="password" placeholder="Client Secret (Optional)" value={clientSecret} onChange={e => setClientSecret(e.target.value)} onBlur={handleCredentialsChange} className="input-sm border rounded bg-gray-50 dark:bg-gray-800 dark:text-white" />
+                                </div>
+                                <div className="space-y-3">
+                                    <input type="text" placeholder="Notification Title" value={broadcastTitle} onChange={e => setBroadcastTitle(e.target.value)} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white" />
+                                    <textarea placeholder="Message..." value={broadcastMessage} onChange={e => setBroadcastMessage(e.target.value)} rows={2} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white" />
+                                    <button onClick={handleAdminBroadcast} disabled={broadcastStatus !== 'idle'} className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 w-full md:w-auto">
+                                        {broadcastStatus === 'sending' ? 'Sending...' : 'Send Broadcast'}
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <hr className="dark:border-gray-700"/>
+
+                            {/* Health Check */}
+                            <div>
+                                <h4 className="font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center gap-2"><WifiIcon className="w-5 h-5"/> System Health Check</h4>
+                                <p className="text-sm text-gray-500 mb-4">Force run daily checks for overdue projects and dead sessions.</p>
+                                <button onClick={handleRunHealthChecks} disabled={healthCheckStatus === 'running'} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                    {healthCheckStatus === 'running' ? 'Running...' : 'Run Checks Now'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                  </div>
             )}
-
-            <div className="flex justify-end pt-4 pb-10">
-                 <button
-                    onClick={handleSave}
-                    disabled={status === 'saving'}
-                    className="bg-brand-primary text-brand-primary-content font-bold py-2 px-6 rounded-lg shadow-md hover:bg-teal-700 disabled:bg-gray-400 transition-colors"
-                >
-                    {status === 'saving' ? 'Saving...' : status === 'saved' ? 'Saved!' : 'Save Preferences'}
-                </button>
-            </div>
         </div>
     );
 };
