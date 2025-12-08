@@ -213,10 +213,10 @@ export interface Notification {
     link?: string; // e.g., `/projects/projectId`
 }
 
-// Brevo Push
+// Push Notification Subscriber
 export interface PushSubscriber {
     userId: string;
-    subscriberId: string; // Brevo ID or Token
+    subscriberId: string; // Service Provider ID or Token
     browser: string;
     createdAt: any;
     isEnabled: boolean;
