@@ -44,12 +44,17 @@ export const getPushSubscriptionStatus = async (userId: string) => {
     };
 
     // Check SW
-    if ('serviceWorker' in navigator) {
+    // Skip checking in preview environments to avoid "Origin mismatch" errors.
+    const isPreview = window.location.hostname.includes('usercontent.goog') || 
+                      window.location.hostname.includes('ai.studio') ||
+                      window.location.hostname.includes('webcontainer.io');
+
+    if ('serviceWorker' in navigator && !isPreview) {
         try {
             const registration = await navigator.serviceWorker.getRegistration();
             status.serviceWorker = !!registration;
         } catch (e) {
-            console.warn("Service Worker check skipped due to environment restrictions:", e);
+            console.debug("Service Worker check skipped:", e);
         }
     }
 
