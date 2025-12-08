@@ -79,45 +79,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [currentUser]);
 
-    // Initial Auth Check
-    useEffect(() => {
-        let mounted = true;
-        
-        const initAuth = async () => {
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session?.user) {
-                    await fetchUserProfile(session.user.id);
-                } else {
-                    setLoading(false);
-                }
-            } catch (e) {
-                console.error("Auth Init Error:", e);
-                setLoading(false);
-            }
-        };
-
-        initAuth();
-
-        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event === 'SIGNED_IN' && session?.user) {
-                await fetchUserProfile(session.user.id);
-            } else if (event === 'SIGNED_OUT') {
-                setCurrentUser(null);
-                setProjects([]);
-                setUsers([]);
-                setTeams([]);
-                setNotifications([]);
-                setLoading(false);
-            }
-        });
-
-        return () => {
-            mounted = false;
-            authListener.subscription.unsubscribe();
-        };
-    }, []);
-
     // Fetch User Profile
     const fetchUserProfile = async (userId: string) => {
         try {
@@ -166,6 +127,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setLoading(false);
         }
     };
+
+    // Initial Auth Check
+    useEffect(() => {
+        let mounted = true;
+
+        // Safety timeout: If loading takes > 5 seconds, stop loading to prevent freeze.
+        const timeoutId = setTimeout(() => {
+            if (mounted) {
+                console.warn("Auth check timed out. Forcing loading state to false.");
+                setLoading((currentLoading) => {
+                    // Only update if currently loading to prevent overwriting other states
+                    if (currentLoading) return false;
+                    return currentLoading;
+                });
+            }
+        }, 5000);
+
+        const initAuth = async () => {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                // Handle potential session errors gracefully
+                if (error) {
+                    console.error("Session Check Error:", error);
+                    // Don't throw, just let it proceed to non-authenticated state
+                }
+
+                if (session?.user && mounted) {
+                    await fetchUserProfile(session.user.id);
+                } else if (mounted) {
+                    setLoading(false);
+                }
+            } catch (e) {
+                console.error("Auth Init Error:", e);
+                if (mounted) setLoading(false);
+            } finally {
+                // Ensure timeout is cleared if init finishes successfully
+                clearTimeout(timeoutId);
+            }
+        };
+
+        initAuth();
+
+        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_IN' && session?.user) {
+                // Refresh profile on explicit sign-in event
+                await fetchUserProfile(session.user.id);
+            } else if (event === 'SIGNED_OUT') {
+                if (mounted) {
+                    setCurrentUser(null);
+                    setProjects([]);
+                    setUsers([]);
+                    setTeams([]);
+                    setNotifications([]);
+                    setLoading(false);
+                }
+            }
+        });
+
+        return () => {
+            mounted = false;
+            clearTimeout(timeoutId);
+            authListener.subscription.unsubscribe();
+        };
+    }, []);
 
     // Load Data when User is set
     useEffect(() => {
