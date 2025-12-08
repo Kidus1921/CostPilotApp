@@ -45,8 +45,12 @@ export const getPushSubscriptionStatus = async (userId: string) => {
 
     // Check SW
     if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.getRegistration();
-        status.serviceWorker = !!registration;
+        try {
+            const registration = await navigator.serviceWorker.getRegistration();
+            status.serviceWorker = !!registration;
+        } catch (e) {
+            console.warn("Service Worker check skipped due to environment restrictions:", e);
+        }
     }
 
     // Check DB

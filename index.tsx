@@ -1,3 +1,4 @@
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -17,8 +18,9 @@ if ('serviceWorker' in navigator) {
         console.log('✅ ServiceWorker registration successful with scope: ', registration.scope);
       })
       .catch((err) => {
-        console.warn('⚠️ ServiceWorker registration failed:', err);
-        console.info('Tip: Ensure public/service-worker.js exists and is served correctly.');
+        // We log as info/debug because in some preview environments (like AI Studio),
+        // origin mismatch errors are expected and not critical for functionality.
+        console.log('ℹ️ ServiceWorker registration info:', err.message || err);
       });
   });
 }
