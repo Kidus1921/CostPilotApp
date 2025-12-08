@@ -60,10 +60,24 @@ export const getPushSubscriptionStatus = async (userId: string) => {
 
     // Check DB
     if (userId) {
-        const { data } = await supabase.from('push_subscribers').select('subscriber_id').eq('user_id', userId).single();
-        if (data) {
-            status.dbLinked = true;
-            status.subscriberId = data.subscriber_id;
+        try {
+            // Use maybeSingle to avoid errors if no row is found
+            const { data, error } = await supabase
+                .from('push_subscribers')
+                .select('subscriber_id')
+                .eq('user_id', userId)
+                .maybeSingle();
+
+            if (data) {
+                status.dbLinked = true;
+                status.subscriberId = data.subscriber_id;
+            } else if (error) {
+                // If the table is missing, this will return a 400 error. 
+                // We log it as debug to reduce noise, as functionality will degrade gracefully.
+                console.debug("Push DB check info (likely table missing):", error.message);
+            }
+        } catch (err) {
+            console.warn("Push subscriber check failed:", err);
         }
     }
 
@@ -108,6 +122,7 @@ export const subscribeToSendPulse = async (): Promise<{ success: boolean; messag
                     const { data: { user } } = await supabase.auth.getUser();
                     
                     if (user) {
+                        // Attempt to save to DB, handle error if table doesn't exist
                         const { error } = await supabase.from('push_subscribers').upsert({
                             user_id: user.id,
                             subscriber_id: subscriberId,
@@ -116,8 +131,9 @@ export const subscribeToSendPulse = async (): Promise<{ success: boolean; messag
                         }, { onConflict: 'user_id' });
 
                         if (error) {
-                            console.error("Failed to link push sub to user:", error);
-                            resolve({ success: true, message: "Subscribed, but database linking failed." });
+                            console.warn("Database linking failed (Table 'push_subscribers' might be missing):", error.message);
+                            // Resolve success anyway because the browser-side subscription worked
+                            resolve({ success: true, message: "Push active (Device only)." });
                         } else {
                             console.log("Device successfully linked to User ID:", user.id);
                             resolve({ success: true, message: "Notifications active and linked." });
@@ -143,7 +159,11 @@ export const unsubscribeFromSendPulse = async (): Promise<void> => {
      console.log("User requested unsubscribe.");
      const { data: { user } } = await supabase.auth.getUser();
      if (user) {
-         await supabase.from('push_subscribers').delete().eq('user_id', user.id);
+         try {
+             await supabase.from('push_subscribers').delete().eq('user_id', user.id);
+         } catch (e) {
+             console.warn("Unsubscribe DB update failed:", e);
+         }
      }
 }
 
@@ -162,28 +182,40 @@ export const sendSendPulseNotification = async (payload: SendPushPayload): Promi
     const clientSecret = testClientSecret;
     
     // 1. Look up the specific Subscriber ID for this User ID
-    const { data: subscriberData } = await supabase
-        .from('push_subscribers')
-        .select('subscriber_id')
-        .eq('user_id', payload.userId)
-        .single();
+    let subscriberId: string | undefined;
 
-    if (!subscriberData?.subscriber_id) {
-        console.log(`[SendPulse] Skipped API push. No registered device found for User ${payload.userId}`);
+    try {
+        const { data, error } = await supabase
+            .from('push_subscribers')
+            .select('subscriber_id')
+            .eq('user_id', payload.userId)
+            .maybeSingle();
         
+        if (error) {
+            // If table missing (400) or RLS error
+            console.debug("Could not fetch push subscriber from DB:", error.message);
+        } else if (data) {
+            subscriberId = data.subscriber_id;
+        }
+    } catch (e) {
+        console.debug("Error fetching push subscriber:", e);
+    }
+
+    // Fallback: If no DB record or table missing, try local browser notification if user matches
+    if (!subscriberId) {
         // Fallback: If testing locally with self, show native notification (works if browser is open)
         const { data: { user } } = await supabase.auth.getUser();
         if (user && user.id === payload.userId && Notification.permission === "granted") {
              console.log("[SendPulse] Showing fallback browser notification.");
+             // Removed icon property to prevent 404 error on /favicon.ico
              new Notification(payload.title, { 
-                 body: payload.message,
-                 icon: '/favicon.ico' // Ensure this exists or remove
+                 body: payload.message
              });
         }
         return;
     }
 
-    const targetSubscriberId = subscriberData.subscriber_id;
+    const targetSubscriberId = subscriberId;
 
     if (!clientId || !clientSecret) {
         console.log(`[Mock SendPulse] Would send to Subscriber ID ${targetSubscriberId}: ${payload.title}`);
