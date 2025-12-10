@@ -1,3 +1,4 @@
+
 import { supabase } from '../supabaseClient';
 
 // Augment window interface for SendPulse SDK
@@ -272,9 +273,8 @@ export const sendSendPulseNotification = async (payload: SendPushPayload): Promi
         // Fallback: If testing locally with self, show native notification (works if browser is open)
         const { data: { user } } = await supabase.auth.getUser();
         if (user && user.id === payload.userId && Notification.permission === "granted") {
-             console.log("[SendPulse] Showing fallback browser notification.");
+             console.log("[SendPulse] Showing fallback browser notification (No ID).");
              try {
-                // Ensure we don't pass 'icon' property if icon file is missing to avoid 404s
                 new Notification(payload.title, { 
                     body: payload.message
                 });
@@ -285,9 +285,19 @@ export const sendSendPulseNotification = async (payload: SendPushPayload): Promi
 
     const targetSubscriberId = subscriberId;
 
+    // Simulation Mode: If we don't have backend credentials on the client (which is secure),
+    // we show a Local Notification to mimic the push experience so the user gets feedback.
     if (!clientId || !clientSecret) {
-        // Client-side simulation only logs, as it cannot securely call SendPulse API
-        console.log(`[SendPulse Simulation] Would send push to ID ${targetSubscriberId}: ${payload.title}`);
+        console.log(`[SendPulse Simulation] would trigger server push to ID ${targetSubscriberId}: ${payload.title}`);
+        
+        if (Notification.permission === "granted") {
+             console.log("[SendPulse] Showing simulation local notification.");
+             try {
+                new Notification(payload.title, { 
+                    body: payload.message
+                });
+             } catch(e) { console.error("Local notification failed", e) }
+        }
         return;
     }
 };
