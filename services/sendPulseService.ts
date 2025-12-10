@@ -1,4 +1,3 @@
-
 import { supabase } from '../supabaseClient';
 
 // Augment window interface for SendPulse SDK
@@ -10,6 +9,7 @@ declare global {
 
 let testClientId: string | null = null;
 let testClientSecret: string | null = null;
+let syncRan = false; // Prevent multiple sync attempts per session
 
 /**
  * Sets temporary credentials for testing purposes (used in Admin Broadcast).
@@ -43,16 +43,16 @@ export const getPushSubscriptionStatus = async (userId: string) => {
         subscriberId: null as string | null
     };
 
-    // Check SW
-    if ('serviceWorker' in navigator) {
+    // Check SW (Skip in preview/development to avoid origin mismatch errors)
+    if ('serviceWorker' in navigator && !window.location.hostname.includes('content.goog')) {
         try {
             const registration = await navigator.serviceWorker.getRegistration();
             status.serviceWorker = !!registration;
         } catch (e: any) {
-            // Silence "Origin mismatch" errors common in preview environments
-            if (!e.message?.includes('Origin mismatch')) {
+             // Silence expected "Origin mismatch" in preview envs
+             if (!e.message?.includes('Origin mismatch')) {
                 console.debug("Service Worker check skipped:", e);
-            }
+             }
         }
     }
 
@@ -69,7 +69,8 @@ export const getPushSubscriptionStatus = async (userId: string) => {
                 status.dbLinked = true;
                 status.subscriberId = data.subscriber_id;
             } else if (error) {
-                console.debug("Push DB check info (likely table missing):", error.message);
+                // Table might not exist yet
+                console.debug("Push DB check info:", error.message);
             }
         } catch (err) {
             console.warn("Push subscriber check failed:", err);
@@ -94,106 +95,130 @@ const waitForSdk = async (timeout = 5000): Promise<boolean> => {
  * If this is a new subscription (not found in DB), it sends a Welcome Push.
  */
 export const subscribeToSendPulse = async (): Promise<{ success: boolean; message: string }> => {
+    if (!navigator.onLine) {
+        return { success: false, message: "You are offline. Please check connection." };
+    }
+
     // 1. Wait for SDK to load (async script)
     const sdkReady = await waitForSdk();
     if (!sdkReady) {
-        return { success: false, message: "Push service not ready. Please refresh and try again." };
+        return { success: false, message: "Push service unreachable (External SDK Error)." };
+    }
+
+    if (Notification.permission === 'denied') {
+        return { success: false, message: "Notifications are blocked in browser settings." };
     }
 
     return new Promise((resolve) => {
         console.log("Triggering SendPulse subscription...");
 
-        // 2. Use SendPulse SDK to handle the subscription cycle
-        window.oSpP.push(['init']); 
-        
-        let attempts = 0;
-        const maxAttempts = 20;
-
-        const checkSubscription = setInterval(async () => {
-            attempts++;
-            
-            if (Notification.permission === 'denied') {
-                clearInterval(checkSubscription);
-                resolve({ success: false, message: "Notifications are blocked in browser settings." });
-                return;
+        try {
+            // 2. Use SendPulse SDK to handle the subscription cycle
+            // We use a try-catch block around the push call just in case
+            try {
+                window.oSpP.push(['init']); 
+            } catch (e) {
+                console.warn("SendPulse init failed", e);
             }
+            
+            let attempts = 0;
+            const maxAttempts = 15; 
+            const intervalTime = 2000; // Increased to 2s to reduce network spam if 502s are happening
 
-            // 'getID' callback returns the subscriber ID if subscribed
-            window.oSpP.push(['getID', async function(subscriberId: string) {
-                if (subscriberId) {
+            const checkSubscription = setInterval(async () => {
+                attempts++;
+                
+                if (Notification.permission === 'denied') {
                     clearInterval(checkSubscription);
-                    console.log("SendPulse ID received:", subscriberId);
+                    resolve({ success: false, message: "Notifications blocked." });
+                    return;
+                }
 
-                    // 3. Link to Supabase User
-                    const { data: { user } } = await supabase.auth.getUser();
-                    
-                    if (user) {
-                        // Check if record already exists to decide on Welcome Message
-                        const { data: existingRecord } = await supabase
-                            .from('push_subscribers')
-                            .select('user_id')
-                            .eq('user_id', user.id)
-                            .maybeSingle();
+                // 'getID' callback returns the subscriber ID if subscribed
+                window.oSpP.push(['getID', async function(subscriberId: string) {
+                    if (subscriberId) {
+                        clearInterval(checkSubscription);
+                        console.log("SendPulse ID received:", subscriberId);
 
-                        // Attempt to save to DB
-                        const { error } = await supabase.from('push_subscribers').upsert({
-                            user_id: user.id,
-                            subscriber_id: subscriberId,
-                            platform: 'sendpulse',
-                            created_at: new Date().toISOString()
-                        }, { onConflict: 'user_id' });
+                        // 3. Link to Supabase User
+                        const { data: { user } } = await supabase.auth.getUser();
+                        
+                        if (user) {
+                            // Check if record already exists to decide on Welcome Message
+                            const { data: existingRecord, error: fetchError } = await supabase
+                                .from('push_subscribers')
+                                .select('user_id')
+                                .eq('user_id', user.id)
+                                .maybeSingle();
 
-                        if (error) {
-                            console.warn("Database linking failed:", error.message);
-                            if (error.code === 'PGRST204' || error.message.includes('does not exist')) {
-                                resolve({ success: true, message: "Push active on device, but DB table missing. Please run setup SQL." });
+                            if (fetchError && !fetchError.message.includes('does not exist')) {
+                                console.warn("Error fetching subscriber:", fetchError);
+                            }
+
+                            // Attempt to save to DB
+                            const { error } = await supabase.from('push_subscribers').upsert({
+                                user_id: user.id,
+                                subscriber_id: subscriberId,
+                                platform: 'sendpulse',
+                                created_at: new Date().toISOString()
+                            }, { onConflict: 'user_id' });
+
+                            if (error) {
+                                console.warn("Database linking failed:", error.message);
+                                resolve({ success: true, message: "Push active on device (DB Sync Failed)." });
                             } else {
-                                resolve({ success: true, message: "Push active (Device only - DB Sync Failed)." });
+                                console.log("Device successfully linked to User ID:", user.id);
+                                
+                                // 4. Send Welcome Message if this was a new DB entry
+                                if (!existingRecord) {
+                                    console.log("New subscriber detected. Sending welcome message...");
+                                    
+                                    let userName = "User";
+                                    // Try fetch profile safely
+                                    const { data: profile } = await supabase.from('users').select('name').eq('id', user.id).maybeSingle();
+                                    if (profile && profile.name) userName = profile.name;
+
+                                    await sendSendPulseNotification({
+                                        userId: user.id,
+                                        title: `Welcome, ${userName}!`,
+                                        message: "You have successfully subscribed to CostPilot notifications.",
+                                        url: window.location.origin
+                                    });
+                                }
+
+                                resolve({ success: true, message: "Notifications active and linked." });
                             }
                         } else {
-                            console.log("Device successfully linked to User ID:", user.id);
-                            
-                            // 4. Send Welcome Message if this was a new DB entry
-                            if (!existingRecord) {
-                                console.log("New subscriber detected. Sending welcome message...");
-                                // Retrieve user profile name for personalization
-                                let userName = "User";
-                                const { data: profile } = await supabase.from('users').select('name').eq('id', user.id).single();
-                                if (profile && profile.name) userName = profile.name;
-
-                                await sendSendPulseNotification({
-                                    userId: user.id,
-                                    title: `Welcome, ${userName}!`,
-                                    message: "You have successfully subscribed to CostPilot notifications.",
-                                    url: window.location.origin
-                                });
-                            }
-
-                            resolve({ success: true, message: "Notifications active and linked." });
+                            resolve({ success: true, message: "Notifications active (Guest mode)." });
                         }
-                    } else {
-                        resolve({ success: true, message: "Notifications active (Guest mode)." });
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(checkSubscription);
+                        // Did not receive ID in time - potentially SDK connection issue or User ignored prompt
+                        resolve({ success: false, message: "Request timed out. Please try again." });
                     }
-                } else if (attempts >= maxAttempts) {
-                    // If no ID yet, and permission is default, SDK might not have prompted automatically.
-                    clearInterval(checkSubscription);
-                    resolve({ success: false, message: "Could not retrieve Subscriber ID. Please allow notifications if prompted." });
-                }
-            }]);
-        }, 500);
+                }]);
+            }, intervalTime);
+        } catch (e) {
+            console.error("SDK Error:", e);
+            resolve({ success: false, message: "Push SDK Error." });
+        }
     });
 };
 
 /**
  * Automatically syncs subscription if permission is already granted (e.g. on login).
  * Does NOT prompt the user if permission is 'default' (avoids popup blocking issues).
+ * Runs only once per session to avoid loops on errors.
  */
 export const syncPushSubscription = async () => {
-    if (Notification.permission === 'granted') {
+    if (syncRan) return; // Prevent multiple runs
+    
+    // Only attempt sync if we are online and have permission
+    if (navigator.onLine && Notification.permission === 'granted') {
+        syncRan = true;
         console.log("[SendPulse] Permission granted. Syncing subscription in background...");
-        await subscribeToSendPulse();
-    } else {
-        console.log("[SendPulse] Permission not granted yet. Waiting for user action.");
+        // Call subscribe to refresh ID, but handle errors silently
+        subscribeToSendPulse().catch(e => console.debug("Background sync failed:", e));
     }
 };
 
@@ -234,12 +259,12 @@ export const sendSendPulseNotification = async (payload: SendPushPayload): Promi
             .maybeSingle();
         
         if (error) {
-            console.debug("Could not fetch push subscriber from DB:", error.message);
+           // Silent fail if table missing or connection error
         } else if (data) {
             subscriberId = data.subscriber_id;
         }
     } catch (e) {
-        console.debug("Error fetching push subscriber:", e);
+        // Silent fail
     }
 
     // Fallback: If no DB record or table missing, try local browser notification if user matches
@@ -249,6 +274,7 @@ export const sendSendPulseNotification = async (payload: SendPushPayload): Promi
         if (user && user.id === payload.userId && Notification.permission === "granted") {
              console.log("[SendPulse] Showing fallback browser notification.");
              try {
+                // Ensure we don't pass 'icon' property if icon file is missing to avoid 404s
                 new Notification(payload.title, { 
                     body: payload.message
                 });
@@ -260,53 +286,8 @@ export const sendSendPulseNotification = async (payload: SendPushPayload): Promi
     const targetSubscriberId = subscriberId;
 
     if (!clientId || !clientSecret) {
+        // Client-side simulation only logs, as it cannot securely call SendPulse API
         console.log(`[SendPulse Simulation] Would send push to ID ${targetSubscriberId}: ${payload.title}`);
         return;
-    }
-
-    // Note: Calling this from client exposes secrets. Should be server-side.
-    try {
-        // 2. Get Token
-        const tokenResponse = await fetch('https://api.sendpulse.com/oauth/access_token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                grant_type: 'client_credentials',
-                client_id: clientId,
-                client_secret: clientSecret
-            })
-        });
-        
-        const tokenData = await tokenResponse.json();
-        if (!tokenData.access_token) {
-            console.error("Failed to get SendPulse Access Token", tokenData);
-            return;
-        }
-
-        // 3. Send to Specific Website Subscriber
-        const pushResponse = await fetch('https://api.sendpulse.com/push/tasks', {
-             method: 'POST',
-             headers: {
-                 'Authorization': `Bearer ${tokenData.access_token}`,
-                 'Content-Type': 'application/json'
-             },
-             body: JSON.stringify({
-                 title: payload.title,
-                 body: payload.message,
-                 ttl: 86400, // Live for 24 hours
-                 link: payload.url,
-                 filter: {
-                     variable_name: 'id', 
-                     operator: 'or',
-                     value: [targetSubscriberId]
-                 }
-             })
-        });
-        
-        const pushResult = await pushResponse.json();
-        console.log(`[SendPulse] API Response:`, pushResult);
-
-    } catch (error) {
-        console.error("Failed to interact with SendPulse API:", error);
     }
 };
