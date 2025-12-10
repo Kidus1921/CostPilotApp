@@ -134,11 +134,17 @@ export const createNotification = async (notificationData: Omit<Notification, 'i
         console.log(`[Notification Service] Push allowed by user prefs: ${shouldSendPush}`);
 
         if (shouldSendPush) {
+            // Ensure URL is absolute for external push
+            const relativeLink = notificationData.link || '/';
+            const absoluteUrl = relativeLink.startsWith('http') 
+                ? relativeLink 
+                : `${window.location.origin}${relativeLink.startsWith('/') ? '' : '/'}${relativeLink}`;
+
             await sendSendPulseNotification({
                 userId: notificationData.userId,
                 title: notificationData.title,
                 message: notificationData.message,
-                url: notificationData.link || 'https://costpilot.app'
+                url: absoluteUrl
             });
         }
 

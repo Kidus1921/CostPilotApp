@@ -1,10 +1,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
-import { User, UserNotificationPreferences, NotificationPriority, Project, UserRole, NotificationType } from '../../types';
-import { BellIcon, EnvelopeIcon, ServerIcon, WifiIcon, ChipIcon, MegaphoneIcon, RefreshIcon } from '../IconComponents';
-import { subscribeToSendPulse, unsubscribeFromSendPulse, setSendPulseCredentials, getPushSubscriptionStatus } from '../../services/sendPulseService';
-import { createNotification, runSystemHealthChecks } from '../../services/notificationService';
+import { User, UserNotificationPreferences, NotificationPriority, UserRole } from '../../types';
+import { ServerIcon, RefreshIcon, ChipIcon } from '../IconComponents';
+import { subscribeToSendPulse, unsubscribeFromSendPulse, getPushSubscriptionStatus } from '../../services/sendPulseService';
 
 const defaultPreferences: UserNotificationPreferences = {
     inApp: {
@@ -33,20 +32,10 @@ interface NotificationSettingsTabProps {
 const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ currentUser }) => {
     const currentUserId = currentUser.id; 
     const [preferences, setPreferences] = useState<UserNotificationPreferences | null>(null);
-    const [currentUserRole, setCurrentUserRole] = useState<UserRole>(UserRole.ProjectManager);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
     const [pushStatusMsg, setPushStatusMsg] = useState('');
-    
-    // Admin Broadcast State
-    const [broadcastTitle, setBroadcastTitle] = useState('');
-    const [broadcastMessage, setBroadcastMessage] = useState('');
-    const [clientId, setClientId] = useState('');
-    const [clientSecret, setClientSecret] = useState('');
-    const [broadcastStatus, setBroadcastStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
-    const [healthCheckStatus, setHealthCheckStatus] = useState<'idle' | 'running' | 'completed'>('idle');
-    const [isAdminOpen, setIsAdminOpen] = useState(false);
 
     // Diagnostics State
     const [diagnosticStatus, setDiagnosticStatus] = useState<any>(null);
@@ -74,7 +63,6 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
                 };
 
                 setPreferences(mergedPrefs);
-                setCurrentUserRole(userData.role);
             } else {
                  setPreferences(defaultPreferences);
             }
@@ -96,26 +84,6 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
     const runDiagnostics = async () => {
         const status = await getPushSubscriptionStatus(currentUser.id!);
         setDiagnosticStatus(status);
-    };
-
-    const handlePreferenceChange = useCallback((category: 'inApp' | 'email', key: string, value: boolean) => {
-        setPreferences(prev => {
-            if (!prev) return null;
-            const categoryObj = prev[category] || defaultPreferences[category];
-            return {
-                ...prev,
-                [category]: {
-                    ...categoryObj,
-                    [key]: value,
-                },
-            };
-        });
-        setStatus('idle');
-    }, []);
-    
-    const handlePriorityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setPreferences(prev => prev ? ({ ...prev, priorityThreshold: e.target.value as NotificationPriority }) : null);
-        setStatus('idle');
     };
     
     const handlePushToggle = async (isChecked: boolean) => {
@@ -157,10 +125,6 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
         }
     };
     
-    const handleCredentialsChange = () => {
-        setSendPulseCredentials(clientId, clientSecret);
-    };
-    
     const handleTestNotification = async () => {
         if (!("Notification" in window)) {
             alert("This browser does not support desktop notification");
@@ -175,52 +139,11 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
             
             // Server check logic here if needed
             if (preferences?.pushEnabled && currentUser.id) {
-                // We can't trigger a real server push from client without an Edge Function or exposing keys,
-                // but we can simulate the "Diagnostic" check.
                 alert("Triggering local test... If you don't see a notification, check your OS Focus Assist settings.");
             }
         } else {
             alert("🚫 Notifications are blocked. Please allow them in your browser URL bar.");
         }
-    };
-
-    const handleAdminBroadcast = async () => {
-        if (!broadcastTitle || !broadcastMessage) return;
-        setBroadcastStatus('sending');
-        try {
-            const { data: users } = await supabase.from('users').select('*');
-            let count = 0;
-            if (users) {
-                for (const user of users) {
-                    if (user.id) {
-                        await createNotification({
-                            userId: user.id,
-                            title: broadcastTitle,
-                            message: broadcastMessage,
-                            type: NotificationType.System,
-                            priority: NotificationPriority.High,
-                        });
-                        count++;
-                    }
-                }
-            }
-            setBroadcastStatus('sent');
-            setBroadcastTitle('');
-            setBroadcastMessage('');
-            setTimeout(() => setBroadcastStatus('idle'), 3000);
-            alert(`Broadcast queued for ${count} users.`);
-        } catch (e) {
-            console.error("Broadcast failed", e);
-            setBroadcastStatus('idle');
-            alert("Broadcast failed.");
-        }
-    };
-    
-    const handleRunHealthChecks = async () => {
-        setHealthCheckStatus('running');
-        await runSystemHealthChecks(true); 
-        setHealthCheckStatus('completed');
-        setTimeout(() => setHealthCheckStatus('idle'), 3000);
     };
     
     if (loading) return <div className="text-center p-10">Loading settings...</div>;
@@ -231,14 +154,6 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
         <span className={`inline-block w-3 h-3 rounded-full mr-2 ${active ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`}></span>
     );
 
-    const notificationTypes = [
-        { key: 'taskUpdates', label: 'Task Updates' },
-        { key: 'approvals', label: 'Approvals & Rejections' },
-        { key: 'costOverruns', label: 'Cost Overruns' },
-        { key: 'deadlines', label: 'Upcoming Deadlines' },
-        { key: 'system', label: 'System Announcements' },
-    ];
-    
     return (
         <div className="space-y-6 max-w-4xl mx-auto animate-fadeIn">
             {/* Diagnostics Card */}
@@ -263,53 +178,31 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
                 </div>
             </div>
 
-            {/* General Channels */}
+            {/* Notification Settings */}
             <div className="bg-base-100 dark:bg-gray-800 p-6 sm:p-8 rounded-xl shadow-md">
-                <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">Notification Channels</h3>
-                    <label className="flex items-center cursor-pointer">
-                        <span className="mr-3 text-sm font-medium text-gray-900 dark:text-gray-300">Push Notifications</span>
-                        <div className="relative">
-                            <input type="checkbox" className="sr-only peer" checked={preferences.pushEnabled || false} onChange={e => handlePushToggle(e.target.checked)} />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-primary/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-brand-primary"></div>
-                        </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Notification Settings</h3>
+                
+                <div className="bg-base-200 dark:bg-gray-700/50 rounded-xl p-6 flex items-center justify-between">
+                    <div>
+                        <h4 className="text-lg font-bold text-gray-900 dark:text-white">Push Notifications</h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            Receive real-time alerts for tasks, approvals, and deadlines even when the app is closed.
+                        </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            className="sr-only peer" 
+                            checked={preferences.pushEnabled || false} 
+                            onChange={e => handlePushToggle(e.target.checked)} 
+                        />
+                        <div className="w-14 h-7 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-primary/30 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-brand-primary"></div>
                     </label>
                 </div>
                 
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 italic">{pushStatusMsg || 'Toggle push to receive alerts even when the app is closed.'}</p>
-
-                <div className="overflow-x-auto">
-                    <table className="min-w-full">
-                        <thead>
-                            <tr className="border-b border-gray-200 dark:border-gray-700">
-                                <th className="py-3 px-4 text-left text-sm font-semibold text-gray-500 dark:text-gray-400">Type</th>
-                                <th className="py-3 px-4 text-center text-sm font-semibold text-gray-500 dark:text-gray-400"><BellIcon className="w-5 h-5 mx-auto"/> In-App</th>
-                                <th className="py-3 px-4 text-center text-sm font-semibold text-gray-500 dark:text-gray-400"><EnvelopeIcon className="w-5 h-5 mx-auto"/> Email</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                             {notificationTypes.map(({ key, label }) => (
-                                <tr key={key} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                    <td className="py-4 px-4 font-medium text-gray-900 dark:text-gray-100">{label}</td>
-                                    <td className="py-4 px-4 text-center">
-                                        <input type="checkbox" className="h-5 w-5 rounded text-brand-primary focus:ring-brand-primary cursor-pointer" checked={preferences.inApp ? preferences.inApp[key as keyof typeof preferences.inApp] : false} onChange={e => handlePreferenceChange('inApp', key, e.target.checked)} />
-                                    </td>
-                                    <td className="py-4 px-4 text-center">
-                                        <input type="checkbox" className="h-5 w-5 rounded text-brand-primary focus:ring-brand-primary cursor-pointer" checked={preferences.email ? preferences.email[key as keyof typeof preferences.email] : false} onChange={e => handlePreferenceChange('email', key, e.target.checked)} />
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-                    <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Priority Threshold</h4>
-                    <p className="text-xs text-gray-500 mb-2">Only receive notifications at or above this level.</p>
-                    <select value={preferences.priorityThreshold} onChange={handlePriorityChange} className="block w-full max-w-xs pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-brand-primary focus:border-brand-primary sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                        {Object.values(NotificationPriority).map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                </div>
+                {pushStatusMsg && (
+                     <p className="mt-4 text-sm text-center font-medium text-brand-primary animate-pulse">{pushStatusMsg}</p>
+                )}
 
                 <div className="flex justify-end pt-6">
                      <button onClick={handleSave} disabled={status === 'saving'} className="bg-brand-primary text-brand-primary-content font-bold py-2 px-6 rounded-lg shadow-md hover:bg-teal-700 disabled:opacity-50 transition-colors">
@@ -317,49 +210,6 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
                     </button>
                 </div>
             </div>
-            
-            {/* Admin Tools */}
-            {currentUserRole === UserRole.Admin && (
-                 <div className="bg-base-100 dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-200 dark:border-gray-700">
-                    <button onClick={() => setIsAdminOpen(!isAdminOpen)} className="w-full p-4 flex justify-between items-center bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                             <ChipIcon className="w-5 h-5 text-orange-500"/> Admin Tools
-                        </h3>
-                        <span className={`transform transition-transform ${isAdminOpen ? 'rotate-180' : ''}`}>▼</span>
-                    </button>
-                    
-                    {isAdminOpen && (
-                        <div className="p-6 space-y-8 animate-fadeIn">
-                             {/* Broadcast */}
-                            <div>
-                                <h4 className="font-bold text-gray-700 dark:text-gray-200 mb-4 flex items-center gap-2"><MegaphoneIcon className="w-5 h-5"/> Manual Broadcast</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                    <input type="text" placeholder="Client ID (Optional)" value={clientId} onChange={e => setClientId(e.target.value)} onBlur={handleCredentialsChange} className="input-sm border rounded bg-gray-50 dark:bg-gray-800 dark:text-white" />
-                                    <input type="password" placeholder="Client Secret (Optional)" value={clientSecret} onChange={e => setClientSecret(e.target.value)} onBlur={handleCredentialsChange} className="input-sm border rounded bg-gray-50 dark:bg-gray-800 dark:text-white" />
-                                </div>
-                                <div className="space-y-3">
-                                    <input type="text" placeholder="Notification Title" value={broadcastTitle} onChange={e => setBroadcastTitle(e.target.value)} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white" />
-                                    <textarea placeholder="Message..." value={broadcastMessage} onChange={e => setBroadcastMessage(e.target.value)} rows={2} className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white" />
-                                    <button onClick={handleAdminBroadcast} disabled={broadcastStatus !== 'idle'} className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 w-full md:w-auto">
-                                        {broadcastStatus === 'sending' ? 'Sending...' : 'Send Broadcast'}
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <hr className="dark:border-gray-700"/>
-
-                            {/* Health Check */}
-                            <div>
-                                <h4 className="font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center gap-2"><WifiIcon className="w-5 h-5"/> System Health Check</h4>
-                                <p className="text-sm text-gray-500 mb-4">Force run daily checks for overdue projects and dead sessions.</p>
-                                <button onClick={handleRunHealthChecks} disabled={healthCheckStatus === 'running'} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                                    {healthCheckStatus === 'running' ? 'Running...' : 'Run Checks Now'}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                 </div>
-            )}
         </div>
     );
 };

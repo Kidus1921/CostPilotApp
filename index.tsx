@@ -18,8 +18,11 @@ if ('serviceWorker' in navigator) {
         console.log('✅ ServiceWorker registration successful with scope: ', registration.scope);
       })
       .catch((err) => {
-        // We log as info/debug because in some preview environments (like AI Studio),
-        // origin mismatch errors are expected and not critical for functionality.
+        // Suppress "Origin mismatch" errors common in cloud/preview environments (like AI Studio)
+        // as they are expected behavior when the document origin doesn't match the worker origin policy.
+        if (err.message && err.message.includes('Origin mismatch')) {
+            return; 
+        }
         console.log('ℹ️ ServiceWorker registration info:', err.message || err);
       });
   });

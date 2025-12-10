@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 import { User, Project, Team, Notification, UserRole, UserStatus } from './types';
-import { initSendPulse } from './services/sendPulseService';
+import { initSendPulse, syncPushSubscription } from './services/sendPulseService';
 import { runSystemHealthChecks } from './services/notificationService';
 
 interface AppContextType {
@@ -95,6 +95,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 
                 // Initialize Push Service
                 initSendPulse(userId);
+                // Attempt to sync subscription (if permission already granted)
+                syncPushSubscription();
 
                 // Run System Health Checks (Overdue Projects, etc.)
                 // This runs once on app load/login, but respects localStorage rate limiting inside the service
@@ -119,6 +121,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                    
                    // Init push for fallback user too
                    initSendPulse(userId);
+                   syncPushSubscription();
                 }
             }
         } catch (e) {
