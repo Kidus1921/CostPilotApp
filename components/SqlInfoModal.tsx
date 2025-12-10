@@ -16,9 +16,17 @@ CREATE TABLE public.push_subscribers (
     PRIMARY KEY (user_id, subscriber_id)
 );
 ALTER TABLE public.push_subscribers ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies to prevent errors on re-run
+DROP POLICY IF EXISTS "Users can insert own" ON public.push_subscribers;
+DROP POLICY IF EXISTS "Users can view own" ON public.push_subscribers;
+DROP POLICY IF EXISTS "Users can delete own" ON public.push_subscribers;
+DROP POLICY IF EXISTS "Users can update own" ON public.push_subscribers;
+
 CREATE POLICY "Users can insert own" ON public.push_subscribers FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can view own" ON public.push_subscribers FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own" ON public.push_subscribers FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "Users can update own" ON public.push_subscribers FOR UPDATE USING (auth.uid() = user_id);
 
 -- 2. Create notifications table
 CREATE TABLE IF NOT EXISTS public.notifications (
@@ -33,6 +41,12 @@ CREATE TABLE IF NOT EXISTS public.notifications (
     timestamp TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies to prevent errors on re-run
+DROP POLICY IF EXISTS "Users can view own" ON public.notifications;
+DROP POLICY IF EXISTS "Users can update own" ON public.notifications;
+DROP POLICY IF EXISTS "Authenticated can insert" ON public.notifications;
+
 CREATE POLICY "Users can view own" ON public.notifications FOR SELECT USING (auth.uid() = "userId");
 CREATE POLICY "Users can update own" ON public.notifications FOR UPDATE USING (auth.uid() = "userId");
 CREATE POLICY "Authenticated can insert" ON public.notifications FOR INSERT WITH CHECK (auth.role() = 'authenticated');

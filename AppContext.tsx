@@ -95,8 +95,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 
                 // Initialize Push Service
                 initSendPulse(userId);
-                // Attempt to sync subscription (if permission already granted)
-                syncPushSubscription();
+                // Attempt to sync subscription (if permission already granted), passing explicit userId
+                syncPushSubscription(userId);
 
                 // Run System Health Checks (Overdue Projects, etc.)
                 // This runs once on app load/login, but respects localStorage rate limiting inside the service
@@ -121,7 +121,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                    
                    // Init push for fallback user too
                    initSendPulse(userId);
-                   syncPushSubscription();
+                   syncPushSubscription(userId);
                 }
             }
         } catch (e) {
