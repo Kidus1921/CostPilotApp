@@ -28,6 +28,7 @@ export const subscribeToSendPulse = async (
     return { success: false, message: "You are offline." };
   }
 
+  // 1. Check/Request Permission (Native)
   if (Notification.permission === "default") {
     try {
         const permission = await Notification.requestPermission();
@@ -40,27 +41,36 @@ export const subscribeToSendPulse = async (
   }
 
   if (Notification.permission !== "granted") {
-    return { success: false, message: "Notifications blocked." };
+    return { success: false, message: "Notifications blocked. Please enable them in browser settings." };
   }
 
-  // Init SDK
-  if (window.oSpP) {
-      window.oSpP.push(["init"]);
+  // 2. Trigger SendPulse Subscribe
+  // This registers the service worker and gets the ID from SendPulse servers
+  if (typeof window !== "undefined") {
+    if (!window.oSpP) {
+        window.oSpP = [];
+    }
+    // Explicitly call subscribe as per SendPulse requirements for some envs
+    window.oSpP.push(["init"]);
+    window.oSpP.push(["subscribe"]);
+  } else {
+      return { success: false, message: "SendPulse SDK not loaded." };
   }
 
   return new Promise((resolve) => {
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 20; // Wait ~30s
 
     const interval = setInterval(() => {
       attempts++;
 
+      // Safety check if SDK is really loaded
       if (!window.oSpP) {
-          if (attempts >= maxAttempts) {
+           if (attempts >= maxAttempts) {
               clearInterval(interval);
-              resolve({ success: false, message: "SDK not loaded." });
-          }
-          return;
+              resolve({ success: false, message: "SendPulse SDK not loaded." });
+           }
+           return;
       }
 
       window.oSpP.push([
@@ -71,13 +81,14 @@ export const subscribeToSendPulse = async (
               clearInterval(interval);
               resolve({
                 success: false,
-                message: "Subscription timeout.",
+                message: "Subscription timeout. Service Worker may be missing or domain mismatch.",
               });
             }
             return;
           }
 
           clearInterval(interval);
+          console.log("✅ SendPulse Subscriber ID:", subscriberId);
 
           // Get logged-in user if not passed
           if (!userId) {
@@ -88,12 +99,12 @@ export const subscribeToSendPulse = async (
           if (!userId) {
             resolve({
               success: true,
-              message: "Subscribed (guest mode).",
+              message: "Subscribed (guest mode - ID not saved).",
             });
             return;
           }
 
-          // Save subscriber ID
+          // Save subscriber ID to Supabase
           const { error } = await supabase
             .from("push_subscribers")
             .upsert({
@@ -101,13 +112,14 @@ export const subscribeToSendPulse = async (
               subscriber_id: subscriberId,
               platform: "sendpulse",
               created_at: new Date().toISOString(),
-            });
+            }, { onConflict: 'user_id,subscriber_id' });
 
           if (error) {
-            console.error(error);
+            console.error("Supabase upsert error:", error);
+            // We resolve success because the push subscription itself worked on the client
             resolve({
               success: true,
-              message: "Subscribed (DB sync pending).",
+              message: "Subscribed (DB sync pending/failed).",
             });
             return;
           }
@@ -130,7 +142,8 @@ export const syncPushSubscription = async (userId?: string) => {
 
   if (Notification.permission === "granted") {
     syncRan = true;
-    subscribeToSendPulse(userId).catch(() => {});
+    // We run the subscribe flow silently to ensure ID is synced
+    subscribeToSendPulse(userId).catch(console.error);
   }
 };
 
@@ -145,17 +158,28 @@ export const unsubscribeFromSendPulse = async () => {
     .from("push_subscribers")
     .delete()
     .eq("user_id", data.user.id);
+    
+  // Attempt to unsubscribe from SDK if possible (SendPulse SDK doesn't always expose easy unsubscribe)
 };
 
 // Functions to maintain compatibility with existing components (if any were relying on the old export names)
 export const getPushSubscriptionStatus = async (userId: string) => {
-    // Basic compatibility mock for diagnostics
+    let subscriberId = null;
+    let dbLinked = false;
+    
+    // Check DB
+    const { data } = await supabase.from('push_subscribers').select('subscriber_id').eq('user_id', userId).maybeSingle();
+    if (data) {
+        dbLinked = true;
+        subscriberId = data.subscriber_id;
+    }
+
     return {
         permission: Notification.permission,
         sdkLoaded: !!window.oSpP,
         serviceWorker: 'serviceWorker' in navigator,
-        dbLinked: true, // Optimistic
-        subscriberId: 'protected'
+        dbLinked,
+        subscriberId
     };
 };
 
@@ -184,7 +208,7 @@ export const sendPushNotification = async (
   const functionUrl = `${PROJECT_URL}/functions/v1/send-push`;
 
   try {
-      await fetch(functionUrl, {
+      const res = await fetch(functionUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -197,6 +221,10 @@ export const sendPushNotification = async (
           url: window.location.origin,
         }),
       });
+      if (!res.ok) {
+          const text = await res.text();
+          console.error("Push Function Error:", text);
+      }
   } catch (error) {
       console.error("Failed to invoke send-push function:", error);
   }

@@ -22,8 +22,11 @@ DROP POLICY IF EXISTS "Users can insert own" ON public.push_subscribers;
 DROP POLICY IF EXISTS "Users can view own" ON public.push_subscribers;
 DROP POLICY IF EXISTS "Users can delete own" ON public.push_subscribers;
 DROP POLICY IF EXISTS "Users can update own" ON public.push_subscribers;
+DROP POLICY IF EXISTS "Allow insert push subscribers" ON public.push_subscribers;
 
-CREATE POLICY "Users can insert own" ON public.push_subscribers FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- Critical: Policy to allow insert with 'using (true)' for initial subscription
+CREATE POLICY "Allow insert push subscribers" ON public.push_subscribers FOR INSERT TO authenticated USING (true) WITH CHECK (auth.uid() = user_id);
+
 CREATE POLICY "Users can view own" ON public.push_subscribers FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own" ON public.push_subscribers FOR DELETE USING (auth.uid() = user_id);
 CREATE POLICY "Users can update own" ON public.push_subscribers FOR UPDATE USING (auth.uid() = user_id);
