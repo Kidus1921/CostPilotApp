@@ -2,7 +2,7 @@
 import { supabase } from '../supabaseClient';
 import { Notification, NotificationType, User, NotificationPriority, Project, ProjectStatus, UserNotificationPreferences } from '../types';
 import { sendEmailNotification } from './emailService';
-import { sendSendPulseNotification } from './sendPulseService';
+import { sendPushNotification } from './sendPulseService';
 
 // Default preferences to fall back on
 const defaultPreferences: UserNotificationPreferences = {
@@ -105,7 +105,7 @@ export const createNotification = async (notificationData: Omit<Notification, 'i
             });
         }
 
-        // 4. Web Push Notifications (SendPulse)
+        // 4. Web Push Notifications (SendPulse via Edge Function)
         let shouldSendPush = pushEnabled || false;
         
         const checkInAppPref = (prop: keyof UserNotificationPreferences['inApp']) => inAppPrefs && inAppPrefs[prop] === true;
@@ -134,18 +134,11 @@ export const createNotification = async (notificationData: Omit<Notification, 'i
         console.log(`[Notification Service] Push allowed by user prefs: ${shouldSendPush}`);
 
         if (shouldSendPush) {
-            // Ensure URL is absolute for external push
-            const relativeLink = notificationData.link || '/';
-            const absoluteUrl = relativeLink.startsWith('http') 
-                ? relativeLink 
-                : `${window.location.origin}${relativeLink.startsWith('/') ? '' : '/'}${relativeLink}`;
-
-            await sendSendPulseNotification({
-                userId: notificationData.userId,
-                title: notificationData.title,
-                message: notificationData.message,
-                url: absoluteUrl
-            });
+            await sendPushNotification(
+                notificationData.userId,
+                notificationData.title,
+                notificationData.message
+            );
         }
 
     } catch (error) {
