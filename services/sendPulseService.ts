@@ -28,50 +28,25 @@ export const subscribeToSendPulse = async (
     return { success: false, message: "You are offline." };
   }
 
-  // 1. Check/Request Permission (Native)
-  if (Notification.permission === "default") {
-    try {
-        const permission = await Notification.requestPermission();
-        if (permission !== "granted") {
-            return { success: false, message: "Permission denied." };
-        }
-    } catch (e) {
-        return { success: false, message: "Could not request permission." };
-    }
+  if (typeof window === "undefined") {
+    return { success: false, message: "Browser only feature." };
   }
 
-  if (Notification.permission !== "granted") {
-    return { success: false, message: "Notifications blocked. Please enable them in browser settings." };
-  }
+  // Ensure SDK stack exists
+  window.oSpP = window.oSpP || [];
 
-  // 2. Trigger SendPulse Subscribe
-  // This registers the service worker and gets the ID from SendPulse servers
-  if (typeof window !== "undefined") {
-    if (!window.oSpP) {
-        window.oSpP = [];
-    }
-    // Explicitly call subscribe as per SendPulse requirements for some envs
-    window.oSpP.push(["init"]);
-    window.oSpP.push(["subscribe"]);
-  } else {
-      return { success: false, message: "SendPulse SDK not loaded." };
-  }
+  console.log("[SendPulse] Calling subscribe()");
+
+  // 🚨 DO NOT REQUEST PERMISSION MANUALLY
+  // SendPulse SDK must handle this itself to correctly register the service worker
+  window.oSpP.push(["subscribe"]);
 
   return new Promise((resolve) => {
     let attempts = 0;
-    const maxAttempts = 20; // Wait ~30s
+    const maxAttempts = 20;
 
     const interval = setInterval(() => {
       attempts++;
-
-      // Safety check if SDK is really loaded
-      if (!window.oSpP) {
-           if (attempts >= maxAttempts) {
-              clearInterval(interval);
-              resolve({ success: false, message: "SendPulse SDK not loaded." });
-           }
-           return;
-      }
 
       window.oSpP.push([
         "getID",
@@ -81,7 +56,8 @@ export const subscribeToSendPulse = async (
               clearInterval(interval);
               resolve({
                 success: false,
-                message: "Subscription timeout. Service Worker may be missing or domain mismatch.",
+                message:
+                  "Subscription failed. Check service-worker.js and domain.",
               });
             }
             return;
@@ -90,7 +66,7 @@ export const subscribeToSendPulse = async (
           clearInterval(interval);
           console.log("✅ SendPulse Subscriber ID:", subscriberId);
 
-          // Get logged-in user if not passed
+          // Resolve user
           if (!userId) {
             const { data } = await supabase.auth.getUser();
             userId = data.user?.id;
@@ -99,27 +75,29 @@ export const subscribeToSendPulse = async (
           if (!userId) {
             resolve({
               success: true,
-              message: "Subscribed (guest mode - ID not saved).",
+              message: "Subscribed (guest mode).",
             });
             return;
           }
 
-          // Save subscriber ID to Supabase
+          // Save to DB
           const { error } = await supabase
             .from("push_subscribers")
-            .upsert({
-              user_id: userId,
-              subscriber_id: subscriberId,
-              platform: "sendpulse",
-              created_at: new Date().toISOString(),
-            }, { onConflict: 'user_id,subscriber_id' });
+            .upsert(
+              {
+                user_id: userId,
+                subscriber_id: subscriberId,
+                platform: "sendpulse",
+                created_at: new Date().toISOString(),
+              },
+              { onConflict: "user_id,subscriber_id" }
+            );
 
           if (error) {
-            console.error("Supabase upsert error:", error);
-            // We resolve success because the push subscription itself worked on the client
+            console.error("Supabase error:", error);
             resolve({
               success: true,
-              message: "Subscribed (DB sync pending/failed).",
+              message: "Subscribed (DB sync failed).",
             });
             return;
           }
@@ -140,9 +118,9 @@ export const subscribeToSendPulse = async (
 export const syncPushSubscription = async (userId?: string) => {
   if (syncRan) return;
 
+  // Only auto-sync if permission is ALREADY granted to avoid blocking popups
   if (Notification.permission === "granted") {
     syncRan = true;
-    // We run the subscribe flow silently to ensure ID is synced
     subscribeToSendPulse(userId).catch(console.error);
   }
 };
