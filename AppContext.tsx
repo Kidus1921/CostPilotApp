@@ -2,7 +2,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 import { User, Project, Team, Notification, UserRole, UserStatus } from './types';
-import { initSendPulse, syncPushSubscription, unsubscribeFromSendPulse } from './services/sendPulseService';
 import { runSystemHealthChecks } from './services/notificationService';
 
 interface AppContextType {
@@ -92,11 +91,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 userData.privileges = userData.privileges || [];
                 
                 setCurrentUser(userData);
-                
-                // Initialize Push Service
-                initSendPulse(userId);
-                // Attempt to sync subscription (if permission already granted), passing explicit userId
-                syncPushSubscription(userId);
 
                 // Run System Health Checks (Overdue Projects, etc.)
                 // This runs once on app load/login, but respects localStorage rate limiting inside the service
@@ -118,10 +112,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                    };
                    setCurrentUser(fallbackUser);
                    await supabase.from('users').insert([fallbackUser]);
-                   
-                   // Init push for fallback user too
-                   initSendPulse(userId);
-                   syncPushSubscription(userId);
                 }
             }
         } catch (e) {
@@ -220,25 +210,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const logout = async () => {
         console.log("Logging out and clearing caches...");
         
-        // 1. Unsubscribe from push notifications service-side if possible
-        try {
-            await unsubscribeFromSendPulse();
-        } catch (e) {
-            console.error("Error unsubscribing from push:", e);
-        }
-
-        // 2. Sign out from Supabase
+        // 1. Sign out from Supabase
         try {
             await supabase.auth.signOut();
         } catch (e) {
              console.error("Error signing out from Supabase:", e);
         }
         
-        // 3. Clear Local and Session Storage
+        // 2. Clear Local and Session Storage
         localStorage.clear();
         sessionStorage.clear();
         
-        // 4. Clear Cache Storage API (Service Worker Caches)
+        // 3. Clear Cache Storage API (Service Worker Caches)
         if ('caches' in window) {
             try {
                 const keys = await caches.keys();
@@ -248,7 +231,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
         }
 
-        // 5. Unregister Service Workers
+        // 4. Unregister Service Workers
         if ('serviceWorker' in navigator) {
              try {
                 const registrations = await navigator.serviceWorker.getRegistrations();
@@ -260,10 +243,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
         }
 
-        // 6. Reset State
+        // 5. Reset State
         setCurrentUser(null);
         
-        // 7. Force Reload to ensure clean slate
+        // 6. Force Reload to ensure clean slate
         window.location.href = '/';
     };
 

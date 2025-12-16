@@ -2,7 +2,6 @@
 import { supabase } from '../supabaseClient';
 import { Notification, NotificationType, User, NotificationPriority, Project, ProjectStatus, UserNotificationPreferences } from '../types';
 import { sendEmailNotification } from './emailService';
-import { sendPushNotification } from './sendPulseService';
 
 // Default preferences to fall back on
 const defaultPreferences: UserNotificationPreferences = {
@@ -22,7 +21,7 @@ const defaultPreferences: UserNotificationPreferences = {
     },
     priorityThreshold: NotificationPriority.Medium,
     projectSubscriptions: [],
-    pushEnabled: true // Default to true to encourage push
+    pushEnabled: false
 };
 
 // Helper to get user data
@@ -53,27 +52,19 @@ export const createNotification = async (notificationData: Omit<Notification, 'i
         if (targetUser) {
             userPrefs = (targetUser.notificationPreferences || {}) as Partial<UserNotificationPreferences>;
         } else {
-             // Fallback if user fetch fails (e.g. RLS issues), use defaults so we still try to push
+             // Fallback if user fetch fails (e.g. RLS issues), use defaults
              console.warn(`[Notification Service] Could not fetch user ${notificationData.userId}. Using defaults.`);
              userPrefs = defaultPreferences;
         }
 
         // Merge user preferences with defaults to avoid undefined errors
         const safeUserEmailPrefs = userPrefs.email || {};
-        const safeUserInAppPrefs = userPrefs.inApp || {};
 
         const emailPrefs = { 
             ...defaultPreferences.email, 
             ...safeUserEmailPrefs
         } as UserNotificationPreferences['email'];
         
-        const inAppPrefs = { 
-            ...defaultPreferences.inApp, 
-            ...safeUserInAppPrefs
-        } as UserNotificationPreferences['inApp'];
-
-        const pushEnabled = userPrefs.pushEnabled !== undefined ? userPrefs.pushEnabled : defaultPreferences.pushEnabled;
-
         // 3. Email Notifications
         let shouldSendEmail = false;
         const checkEmailPref = (prop: keyof UserNotificationPreferences['email']) => emailPrefs && emailPrefs[prop] === true;
@@ -105,41 +96,7 @@ export const createNotification = async (notificationData: Omit<Notification, 'i
             });
         }
 
-        // 4. Web Push Notifications (SendPulse via Edge Function)
-        let shouldSendPush = pushEnabled || false;
-        
-        const checkInAppPref = (prop: keyof UserNotificationPreferences['inApp']) => inAppPrefs && inAppPrefs[prop] === true;
-
-        if (shouldSendPush) {
-             switch (notificationData.type) {
-                case NotificationType.ApprovalRequest:
-                case NotificationType.ApprovalResult:
-                    if (!checkInAppPref('approvals')) shouldSendPush = false;
-                    break;
-                case NotificationType.CostOverrun:
-                    if (!checkInAppPref('costOverruns')) shouldSendPush = false;
-                    break;
-                case NotificationType.Deadline:
-                    if (!checkInAppPref('deadlines')) shouldSendPush = false;
-                    break;
-                case NotificationType.System:
-                    if (!checkInAppPref('system')) shouldSendPush = false;
-                    break;
-                case NotificationType.TaskUpdate:
-                    if (!checkInAppPref('taskUpdates')) shouldSendPush = false;
-                    break;
-            }
-        }
-
-        console.log(`[Notification Service] Push allowed by user prefs: ${shouldSendPush}`);
-
-        if (shouldSendPush) {
-            await sendPushNotification(
-                notificationData.userId,
-                notificationData.title,
-                notificationData.message
-            );
-        }
+        // Push Notifications have been disabled.
 
     } catch (error) {
         console.error("[Notification Service] Error creating notification: ", error);
