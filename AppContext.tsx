@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 import { User, Project, Team, Notification, UserRole, UserStatus } from './types';
-import { initSendPulse, syncPushSubscription } from './services/sendPulseService';
+import { initSendPulse, syncPushSubscription, unsubscribeFromSendPulse } from './services/sendPulseService';
 import { runSystemHealthChecks } from './services/notificationService';
 
 interface AppContextType {
@@ -218,8 +218,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [currentUser, refreshData]);
 
     const logout = async () => {
-        await supabase.auth.signOut();
+        console.log("Logging out and clearing caches...");
+        
+        // 1. Unsubscribe from push notifications service-side if possible
+        try {
+            await unsubscribeFromSendPulse();
+        } catch (e) {
+            console.error("Error unsubscribing from push:", e);
+        }
+
+        // 2. Sign out from Supabase
+        try {
+            await supabase.auth.signOut();
+        } catch (e) {
+             console.error("Error signing out from Supabase:", e);
+        }
+        
+        // 3. Clear Local and Session Storage
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        // 4. Clear Cache Storage API (Service Worker Caches)
+        if ('caches' in window) {
+            try {
+                const keys = await caches.keys();
+                await Promise.all(keys.map(key => caches.delete(key)));
+            } catch (e) {
+                console.error("Error clearing Cache Storage:", e);
+            }
+        }
+
+        // 5. Unregister Service Workers
+        if ('serviceWorker' in navigator) {
+             try {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (const registration of registrations) {
+                    await registration.unregister();
+                }
+            } catch (e) {
+                console.error("Error unregistering Service Workers:", e);
+            }
+        }
+
+        // 6. Reset State
         setCurrentUser(null);
+        
+        // 7. Force Reload to ensure clean slate
+        window.location.href = '/';
     };
 
     // Centralized Permission Checker
