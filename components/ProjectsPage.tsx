@@ -282,6 +282,11 @@ const DocumentsList: FC<{ project: Project; onUpdateProject: (p: Partial<Project
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // RESTRICTION: Reject upload if project is Rejected, unless User is Admin
+    const isRejected = project.status === ProjectStatus.Rejected;
+    const isAdmin = currentUser.role === UserRole.Admin;
+    const canUpload = canManageDocs && (!isRejected || isAdmin);
+
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !project.id) return;
@@ -318,9 +323,24 @@ const DocumentsList: FC<{ project: Project; onUpdateProject: (p: Partial<Project
         <div className="bg-base-100 p-6 rounded-xl shadow-md dark:bg-gray-800">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-bold dark:text-white flex items-center gap-2"><FolderIcon className="w-6 h-6 text-yellow-500"/> Documents</h3>
-                {canManageDocs && <><label htmlFor="doc-upload" className="cursor-pointer text-brand-primary flex items-center gap-1 hover:text-teal-700 transition-colors font-medium bg-teal-50 px-3 py-1.5 rounded-lg dark:bg-teal-900/20"><PlusIcon className="w-5 h-5"/> Upload</label><input id="doc-upload" type="file" ref={fileInputRef} onChange={handleUpload} className="hidden" disabled={uploading} /></>}
+                {canUpload && (
+                    <>
+                        <label htmlFor="doc-upload" className="cursor-pointer text-brand-primary flex items-center gap-1 hover:text-teal-700 transition-colors font-medium bg-teal-50 px-3 py-1.5 rounded-lg dark:bg-teal-900/20">
+                            <PlusIcon className="w-5 h-5"/> Upload
+                        </label>
+                        <input id="doc-upload" type="file" ref={fileInputRef} onChange={handleUpload} className="hidden" disabled={uploading} />
+                    </>
+                )}
             </div>
             {uploading && <div className="text-sm text-brand-primary animate-pulse mb-2">Uploading file...</div>}
+            
+            {/* Warning for non-admins on Rejected projects */}
+            {isRejected && !isAdmin && (
+                <div className="mb-4 p-2 bg-red-50 text-red-600 text-sm rounded dark:bg-red-900/20 dark:text-red-300 border border-red-100 dark:border-red-800">
+                    Project is rejected. Document uploads are restricted.
+                </div>
+            )}
+
             <ul className="space-y-3">
                 {(project.documents || []).map(doc => (
                     <li key={doc.id} className="flex justify-between items-center p-3 bg-base-200 rounded-lg dark:bg-gray-700/50 hover:bg-base-300 dark:hover:bg-gray-700 transition-colors group">
@@ -331,7 +351,7 @@ const DocumentsList: FC<{ project: Project; onUpdateProject: (p: Partial<Project
                                 <span className="text-xs text-gray-500">by {doc.uploadedBy.name} • {new Date(doc.uploadedAt).toLocaleDateString()}</span>
                             </div>
                         </div>
-                        {canManageDocs && <button onClick={() => handleDelete(doc)} className="text-gray-400 hover:text-red-500 transition-colors p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full"><TrashIcon className="w-5 h-5"/></button>}
+                        {canUpload && <button onClick={() => handleDelete(doc)} className="text-gray-400 hover:text-red-500 transition-colors p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full"><TrashIcon className="w-5 h-5"/></button>}
                     </li>
                 ))}
                 {(project.documents || []).length === 0 && (

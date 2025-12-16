@@ -2,6 +2,7 @@
 import { supabase } from '../supabaseClient';
 import { Notification, NotificationType, User, NotificationPriority, Project, ProjectStatus, UserNotificationPreferences } from '../types';
 import { sendEmailNotification } from './emailService';
+import { sendPushNotification } from './sendPulseService';
 
 // Default preferences to fall back on
 const defaultPreferences: UserNotificationPreferences = {
@@ -96,7 +97,13 @@ export const createNotification = async (notificationData: Omit<Notification, 'i
             });
         }
 
-        // Push Notifications have been disabled.
+        // 4. Push Notifications (Restored)
+        // If user has Push enabled generally, and the notification is High Priority or Critical
+        if (targetUser?.id && userPrefs.pushEnabled) {
+             if (notificationData.priority === NotificationPriority.High || notificationData.priority === NotificationPriority.Critical) {
+                 await sendPushNotification(targetUser.id, notificationData.title, notificationData.message);
+             }
+        }
 
     } catch (error) {
         console.error("[Notification Service] Error creating notification: ", error);

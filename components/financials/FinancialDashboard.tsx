@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Project, ProjectStatus, TaskStatus } from '../../types';
@@ -42,8 +43,8 @@ const FinancialDashboard: React.FC = () => {
             acc.totalProjects++;
             if (p.status === ProjectStatus.InProgress || p.status === ProjectStatus.Completed) acc.approvedProjects++;
             if (p.status === ProjectStatus.Pending) acc.pendingApprovals++;
-            acc.totalEstimatedBudget += p.budget;
-            acc.totalActualCost += p.spent || 0;
+            acc.totalEstimatedBudget += (p.budget || 0);
+            acc.totalActualCost += (p.spent || 0);
             return acc;
         }, {
             totalProjects: 0,

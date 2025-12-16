@@ -1,5 +1,5 @@
 
-// SendPulse integration removed.
-// This file is kept to prevent 404s for cached clients, but it performs no operations.
+importScripts('https://web.webpushs.com/sp-push-worker-fb.js?ver=2.0');
+
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', () => self.clients.claim());

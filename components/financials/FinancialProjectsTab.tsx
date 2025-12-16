@@ -87,12 +87,12 @@ const FinancialProjectsTab: React.FC = () => {
                 const key = sortConfig.key;
                 const getSortValue = (p: Project) => {
                     switch(key) {
-                        case 'projectName': return p.title;
-                        case 'budget': return p.budget;
-                        case 'spent': return p.spent;
-                        case 'variance': return p.budget - p.spent;
-                        case 'status': return p.status;
-                        default: return '';
+                        case 'projectName': return p.title || '';
+                        case 'budget': return p.budget || 0;
+                        case 'spent': return p.spent || 0;
+                        case 'variance': return (p.budget || 0) - (p.spent || 0);
+                        case 'status': return p.status || '';
+                        default: return 0;
                     }
                 };
                 const aValue = getSortValue(a);
@@ -119,12 +119,12 @@ const FinancialProjectsTab: React.FC = () => {
                 const key = sortConfig.key;
                 const getSortValue = (task: Task) => {
                     switch (key) {
-                        case 'name': return task.name;
-                        case 'status': return task.status;
+                        case 'name': return task.name || '';
+                        case 'status': return task.status || '';
                         case 'estimatedCost': return task.estimatedCost || 0;
                         case 'actualCost': return task.completionDetails?.actualCost || 0;
                         case 'variance': return (task.estimatedCost || 0) - (task.completionDetails?.actualCost || 0);
-                        default: return '';
+                        default: return 0;
                     }
                 };
 
@@ -203,12 +203,14 @@ const FinancialProjectsTab: React.FC = () => {
                             </thead>
                             <tbody>
                                 {sortedProjects.length > 0 ? sortedProjects.map(project => {
-                                    const variance = project.budget - project.spent;
+                                    const budget = project.budget || 0;
+                                    const spent = project.spent || 0;
+                                    const variance = budget - spent;
                                     return (
                                         <tr key={project.id} className="border-b border-base-200 dark:border-gray-700 even:bg-gray-50 dark:even:bg-gray-700/50 hover:bg-teal-50 dark:hover:bg-gray-700 transition-colors cursor-pointer" onClick={() => setSelectedProjectId(project.id!)}>
                                             <td className="px-6 py-4 align-middle font-semibold text-base-content dark:text-gray-100">{project.title}</td>
-                                            <td className="px-6 py-4 align-middle text-base-content dark:text-gray-200">{formatCurrency(project.budget)}</td>
-                                            <td className="px-6 py-4 align-middle text-base-content dark:text-gray-200">{formatCurrency(project.spent)}</td>
+                                            <td className="px-6 py-4 align-middle text-base-content dark:text-gray-200">{formatCurrency(budget)}</td>
+                                            <td className="px-6 py-4 align-middle text-base-content dark:text-gray-200">{formatCurrency(spent)}</td>
                                             <td className={`px-6 py-4 align-middle font-bold ${variance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(variance)}</td>
                                             <td className="px-6 py-4 align-middle"><StatusBadge status={project.status} /></td>
                                         </tr>
