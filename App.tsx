@@ -5,7 +5,6 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import ProjectsPage from './components/ProjectsPage';
-import ReportsPage from './components/ReportsPage';
 import SettingsPage from './components/SettingsPage';
 import FinancialsPage from './components/financials/FinancialsPage';
 import NotificationsPage from './components/notifications/NotificationsPage';
@@ -66,7 +65,6 @@ const MainLayout: React.FC = () => {
         const accessMap: Record<string, UserRole[]> = {
             'Dashboard': [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance],
             'Projects': [UserRole.Admin, UserRole.ProjectManager],
-            'Reports': [UserRole.Admin],
             'Financials': [UserRole.Admin, UserRole.Finance],
             'Notifications': [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance],
             'Settings': [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance],
@@ -91,7 +89,6 @@ const MainLayout: React.FC = () => {
         switch (activePage) {
             case 'Dashboard': return <Dashboard setActivePage={handleSetPage} />;
             case 'Projects': return <ProjectsPage />;
-            case 'Reports': return <ReportsPage />;
             case 'Financials': return <FinancialsPage />;
             case 'Notifications': return <NotificationsPage onOpenSettings={() => handleSetPage('Settings', 'Notifications')} />;
             case 'Settings': return <SettingsPage initialTab={settingsTab} />;

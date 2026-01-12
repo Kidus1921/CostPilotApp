@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { DashboardIcon, ProjectsIcon, ReportsIcon, FinanceIcon, SettingsIcon, FolderIcon, BellIcon } from './IconComponents';
+import { DashboardIcon, ProjectsIcon, FinanceIcon, SettingsIcon, FolderIcon, BellIcon } from './IconComponents';
 import { UserRole } from '../types';
 import { useAppContext } from '../AppContext';
 
@@ -37,7 +37,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
   const allNavItems = [
     { label: 'Dashboard', icon: <DashboardIcon className="w-6 h-6" />, roles: [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance] },
     { label: 'Projects', icon: <ProjectsIcon className="w-6 h-6" />, roles: [UserRole.Admin, UserRole.ProjectManager] },
-    { label: 'Reports', icon: <ReportsIcon className="w-6 h-6" />, roles: [UserRole.Admin] },
     { label: 'Financials', icon: <FinanceIcon className="w-6 h-6" />, roles: [UserRole.Admin, UserRole.Finance] },
     { label: 'Notifications', icon: <BellIcon className="w-6 h-6" />, roles: [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance] },
     { label: 'Settings', icon: <SettingsIcon className="w-6 h-6" />, roles: [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance] },
