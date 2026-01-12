@@ -31,13 +31,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const isAdmin = currentUser?.role === UserRole.Admin;
 
-    // Helper to process projects (calculate spent/progress)
     const processProjects = (data: any[]): Project[] => {
         return data.map(p => {
             const tasks = p.tasks || [];
             const spent = tasks.reduce((acc: number, task: any) => acc + (task.completionDetails?.actualCost || 0), 0);
             
-            // Calculate completion based on tasks
             let completionPercentage = 0;
             if (tasks.length > 0) {
                 const completedTasks = tasks.filter((t: any) => t.status === 'Completed').length;
@@ -79,30 +77,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [currentUser]);
 
-    // Fetch User Profile
     const fetchUserProfile = async (userId: string) => {
         try {
             const { data, error } = await supabase.from('users').select('*').eq('id', userId).single();
             
             if (data) {
                 const userData = data as User;
-                // Clean up fields
                 if (!Object.values(UserRole).includes(userData.role)) userData.role = UserRole.ProjectManager;
                 userData.teamId = userData.teamId || null;
                 userData.privileges = userData.privileges || [];
                 
                 setCurrentUser(userData);
-
-                // Initialize Push Service
                 initSendPulse(userId);
-                // Attempt to sync subscription (if permission already granted), passing explicit userId
                 syncPushSubscription(userId);
-
-                // Run System Health Checks (Overdue Projects, etc.)
-                // This runs once on app load/login, but respects localStorage rate limiting inside the service
                 runSystemHealthChecks(); 
             } else {
-                // Handle missing public profile (sync issue)
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
                      const fallbackUser: User = {
@@ -118,8 +107,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                    };
                    setCurrentUser(fallbackUser);
                    await supabase.from('users').insert([fallbackUser]);
-                   
-                   // Init push for fallback user too
                    initSendPulse(userId);
                    syncPushSubscription(userId);
                 }
@@ -131,16 +118,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     };
 
-    // Initial Auth Check
     useEffect(() => {
         let mounted = true;
-
-        // Safety timeout: If loading takes > 5 seconds, stop loading to prevent freeze.
         const timeoutId = setTimeout(() => {
             if (mounted) {
-                console.warn("Auth check timed out. Forcing loading state to false.");
                 setLoading((currentLoading) => {
-                    // Only update if currently loading to prevent overwriting other states
                     if (currentLoading) return false;
                     return currentLoading;
                 });
@@ -150,13 +132,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const initAuth = async () => {
             try {
                 const { data: { session }, error } = await supabase.auth.getSession();
-                
-                // Handle potential session errors gracefully
-                if (error) {
-                    console.error("Session Check Error:", error);
-                    // Don't throw, just let it proceed to non-authenticated state
-                }
-
+                if (error) console.error("Session Check Error:", error);
                 if (session?.user && mounted) {
                     await fetchUserProfile(session.user.id);
                 } else if (mounted) {
@@ -166,7 +142,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 console.error("Auth Init Error:", e);
                 if (mounted) setLoading(false);
             } finally {
-                // Ensure timeout is cleared if init finishes successfully
                 clearTimeout(timeoutId);
             }
         };
@@ -175,7 +150,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (event === 'SIGNED_IN' && session?.user) {
-                // Refresh profile on explicit sign-in event
                 await fetchUserProfile(session.user.id);
             } else if (event === 'SIGNED_OUT') {
                 if (mounted) {
@@ -196,21 +170,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
     }, []);
 
-    // Load Data when User is set
     useEffect(() => {
         if (currentUser) {
             refreshData();
-
-            // Realtime Subscriptions
             const channels = [
                 supabase.channel('global_projects').on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, refreshData),
                 supabase.channel('global_users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, refreshData),
                 supabase.channel('global_teams').on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, refreshData),
                 supabase.channel('global_notifs').on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `userId=eq.${currentUser.id}` }, refreshData)
             ];
-
             channels.forEach(c => c.subscribe());
-
             return () => {
                 channels.forEach(c => supabase.removeChannel(c));
             };
@@ -218,27 +187,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [currentUser, refreshData]);
 
     const logout = async () => {
-        console.log("Logging out and clearing caches...");
+        console.log("Terminating all sessions and clearing local data...");
         
-        // 1. Unsubscribe from push notifications service-side if possible
         try {
             await unsubscribeFromSendPulse();
         } catch (e) {
             console.error("Error unsubscribing from push:", e);
         }
 
-        // 2. Sign out from Supabase
         try {
-            await supabase.auth.signOut();
+            // Terminate all sessions globally
+            await supabase.auth.signOut({ scope: 'global' });
         } catch (e) {
              console.error("Error signing out from Supabase:", e);
         }
         
-        // 3. Clear Local and Session Storage
+        // Clear caches and storage
         localStorage.clear();
         sessionStorage.clear();
         
-        // 4. Clear Cache Storage API (Service Worker Caches)
         if ('caches' in window) {
             try {
                 const keys = await caches.keys();
@@ -248,36 +215,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
         }
 
-        // 5. Unregister Service Workers
-        if ('serviceWorker' in navigator) {
+        // Added a defensive check for serviceWorker to avoid "invalid state" errors
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
              try {
                 const registrations = await navigator.serviceWorker.getRegistrations();
                 for (const registration of registrations) {
                     await registration.unregister();
                 }
             } catch (e: any) {
-                // Suppress "invalid state" error commonly seen during unload/logout
-                if (e.message && e.message.includes('invalid state')) {
-                    console.warn("Skipped SW unregistration: Document in invalid state.");
-                } else {
+                // If document state becomes invalid during unregistration (e.g. fast redirect/refresh), ignore it
+                if (!e.message?.includes('invalid state')) {
                     console.error("Error unregistering Service Workers:", e);
                 }
             }
         }
 
-        // 6. Reset State
+        // Update local state. The App component will notice currentUser is null and show the Login page.
         setCurrentUser(null);
-        
-        // 7. Force Reload to ensure clean slate
-        window.location.href = '/';
+        setProjects([]);
+        setUsers([]);
+        setTeams([]);
+        setNotifications([]);
     };
 
-    // Centralized Permission Checker
     const checkPermission = (permissionId: string): boolean => {
         if (!currentUser) return false;
-        // Admins have all permissions implicitly
         if (currentUser.role === UserRole.Admin) return true;
-        // Check if privilege exists in user's privilege array
         return currentUser.privileges?.includes(permissionId) || false;
     };
 
