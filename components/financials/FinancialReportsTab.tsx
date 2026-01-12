@@ -10,10 +10,10 @@ const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', { styl
 const formatDate = (date: Date) => date.toISOString().split('T')[0];
 
 const KpiCard: React.FC<{ title: string; value: string; subtext?: string; colorClass?: string; }> = ({ title, value, subtext, colorClass = 'text-brand-primary' }) => (
-    <div className="bg-base-100 dark:bg-gray-800 p-6 rounded-xl shadow-md">
-        <p className="text-sm font-medium text-base-content-secondary uppercase dark:text-gray-400">{title}</p>
-        <p className={`text-3xl font-bold mt-1 ${colorClass} dark:text-teal-400`}>{value}</p>
-        {subtext && <p className="text-xs text-base-content-secondary dark:text-gray-500 mt-1">{subtext}</p>}
+    <div className="bg-base-100 dark:bg-gray-800 p-4 rounded-xl shadow-md">
+        <p className="text-xs font-medium text-base-content-secondary uppercase dark:text-gray-400">{title}</p>
+        <p className={`text-xl sm:text-2xl font-bold mt-1 ${colorClass} dark:text-teal-400 truncate`}>{value}</p>
+        {subtext && <p className="text-[10px] text-base-content-secondary dark:text-gray-500 mt-1 truncate">{subtext}</p>}
     </div>
 );
 
@@ -53,13 +53,13 @@ const MultiSelectDropdown: React.FC<{
     const buttonText = selectedValues.length > 0 ? `${title} (${selectedValues.length})` : title;
 
     return (
-        <div className="relative" ref={dropdownRef}>
-            <button onClick={() => setIsOpen(!isOpen)} className="flex items-center justify-between w-48 bg-base-200 dark:bg-gray-700/50 p-2 rounded-lg text-sm font-semibold text-base-content dark:text-gray-200 hover:bg-base-300 dark:hover:bg-gray-600 transition-colors">
+        <div className="relative w-full sm:w-auto" ref={dropdownRef}>
+            <button onClick={() => setIsOpen(!isOpen)} className="flex items-center justify-between w-full sm:w-48 bg-base-200 dark:bg-gray-700/50 p-2 rounded-lg text-sm font-semibold text-base-content dark:text-gray-200 hover:bg-base-300 dark:hover:bg-gray-600 transition-colors">
                 {buttonText}
                 <ChevronDownIcon className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'transform rotate-180' : ''}`} />
             </button>
             {isOpen && (
-                <div className="absolute top-full mt-2 w-64 bg-base-100 dark:bg-gray-700 rounded-lg shadow-xl border border-base-300 dark:border-gray-600 z-10 p-2">
+                <div className="absolute top-full left-0 right-0 sm:right-auto mt-2 sm:w-64 bg-base-100 dark:bg-gray-700 rounded-lg shadow-xl border border-base-300 dark:border-gray-600 z-50 p-2">
                     {withSearch && (
                         <div className="relative mb-2">
                              <SearchIcon className="absolute w-4 h-4 text-gray-400 top-1/2 left-3 transform -translate-y-1/2" />
@@ -194,11 +194,11 @@ const FinancialReportsTab: React.FC = () => {
 
     const CATEGORY_COLORS = ['#65081b', '#f3c613', '#3B82F6', '#EC4899', '#8B5CF6', '#F59E0B'];
 
-    if (loading) return <div>Loading reports...</div>;
+    if (loading) return <div className="p-4 text-center">Loading reports...</div>;
 
     if (error) {
         return (
-            <div className="p-6 text-center text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800/50">
+            <div className="p-4 text-center text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800/50">
                 <h3 className="text-lg font-bold">An Error Occurred</h3>
                 <p className="mt-2">{error}</p>
             </div>
@@ -206,126 +206,135 @@ const FinancialReportsTab: React.FC = () => {
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                <h2 className="text-2xl font-bold text-base-content dark:text-gray-100">Advanced Financial Analytics</h2>
-                <div className="flex gap-2">
+        <div className="space-y-4">
+            <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4">
+                <h2 className="text-xl font-bold text-base-content dark:text-gray-100">Financial Analytics</h2>
+                <div className="flex flex-wrap gap-2">
                     <button 
                         onClick={() => exportTableToExcel('financial-details-table', 'financial-details.xlsx')} 
-                        className="bg-brand-primary text-brand-primary-content font-bold py-2 px-4 rounded-lg shadow-md hover:bg-opacity-90 flex items-center gap-2 transition-opacity"
+                        className="bg-brand-primary text-brand-primary-content font-bold py-2 px-4 rounded-lg shadow-md hover:bg-opacity-90 flex items-center justify-center gap-2 transition-opacity text-sm"
                     >
-                        <FileExcelIcon className="w-5 h-5" /> Excel Export
+                        <FileExcelIcon className="w-4 h-4" /> Excel
                     </button>
                     <button 
                         onClick={() => exportElementAsPDF('financial-report-export', 'financial-report.pdf')} 
-                        className="bg-brand-primary text-brand-primary-content font-bold py-2 px-4 rounded-lg shadow-md hover:bg-opacity-90 flex items-center gap-2 transition-opacity"
+                        className="bg-brand-primary text-brand-primary-content font-bold py-2 px-4 rounded-lg shadow-md hover:bg-opacity-90 flex items-center justify-center gap-2 transition-opacity text-sm"
                     >
-                        <FilePdfIcon className="w-5 h-5"/> PDF Export
+                        <FilePdfIcon className="w-4 h-4"/> PDF
                     </button>
                 </div>
             </div>
 
-            {/* Filters */}
             <div className="bg-base-100 p-4 rounded-xl shadow-md dark:bg-gray-800">
-                <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-4">
-                     <MultiSelectDropdown
-                        title="Projects"
-                        options={projects.map(p => ({ value: p.id!, label: p.title }))}
-                        selectedValues={selectedProjectIds}
-                        onChange={setSelectedProjectIds}
-                        withSearch
-                    />
-                     <MultiSelectDropdown
-                        title="Task Status"
-                        options={Object.values(TaskStatus).map(s => ({ value: s, label: s }))}
-                        selectedValues={selectedStatuses}
-                        onChange={(vals) => setSelectedStatuses(vals as TaskStatus[])}
-                    />
-                    <div className="relative flex items-center gap-2 bg-base-200 dark:bg-gray-700/50 p-2 rounded-lg border border-transparent focus-within:border-brand-primary focus-within:ring-1 focus-within:ring-brand-primary transition-colors">
-                        <span className="text-sm text-base-content-secondary dark:text-gray-400 pl-1">From:</span>
-                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-transparent focus:outline-none text-sm text-base-content dark:text-gray-200 dark:[color-scheme:dark]"/>
-                        <span className="text-sm text-base-content-secondary dark:text-gray-400">To:</span>
-                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-transparent focus:outline-none text-sm text-base-content dark:text-gray-200 dark:[color-scheme:dark]"/>
+                <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                     <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                        <MultiSelectDropdown
+                            title="Projects"
+                            options={projects.map(p => ({ value: p.id!, label: p.title }))}
+                            selectedValues={selectedProjectIds}
+                            onChange={setSelectedProjectIds}
+                            withSearch
+                        />
+                        <MultiSelectDropdown
+                            title="Task Status"
+                            options={Object.values(TaskStatus).map(s => ({ value: s, label: s }))}
+                            selectedValues={selectedStatuses}
+                            onChange={(vals) => setSelectedStatuses(vals as TaskStatus[])}
+                        />
+                     </div>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-base-200 dark:bg-gray-700/50 p-2 rounded-lg border border-transparent focus-within:border-brand-primary transition-colors w-full lg:w-auto">
+                        <div className="flex items-center flex-1 sm:flex-none">
+                            <span className="text-xs text-base-content-secondary dark:text-gray-400 pl-1 whitespace-nowrap">From:</span>
+                            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-transparent focus:outline-none text-xs text-base-content dark:text-gray-200 dark:[color-scheme:dark] w-full"/>
+                        </div>
+                        <div className="flex items-center flex-1 sm:flex-none border-t sm:border-t-0 sm:border-l border-gray-300 dark:border-gray-600 pt-1 sm:pt-0 sm:pl-2">
+                            <span className="text-xs text-base-content-secondary dark:text-gray-400 whitespace-nowrap">To:</span>
+                            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-transparent focus:outline-none text-xs text-base-content dark:text-gray-200 dark:[color-scheme:dark] w-full"/>
+                        </div>
                     </div>
-                    <button onClick={clearFilters} className="flex items-center gap-2 text-sm font-semibold text-base-content-secondary hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400 transition-colors p-2 rounded-lg">
-                        <XCircleIcon className="w-5 h-5" /> Clear Filters
+                    <button onClick={clearFilters} className="flex items-center justify-center gap-2 text-sm font-semibold text-base-content-secondary hover:text-red-500 dark:text-gray-400 transition-colors p-2 rounded-lg w-full lg:w-auto">
+                        <XCircleIcon className="w-5 h-5" /> Clear
                     </button>
                 </div>
             </div>
 
-            <div id="financial-report-export">
-                {/* KPIs */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                    <KpiCard title="Total Budget" value={formatCurrency(reportData.totalBudget)} subtext={selectedProjectIds.length > 0 ? `${selectedProjectIds.length} projects selected` : 'All projects'}/>
-                    <KpiCard title="Total Actual Cost" value={formatCurrency(reportData.totalActualCost)} subtext={`${filteredTasks.length} tasks included`}/>
-                    <KpiCard title="Overall Variance" value={formatCurrency(reportData.variance)} colorClass={reportData.variance >= 0 ? 'text-green-500' : 'text-red-500'}/>
-                    <KpiCard title="Budget Utilization" value={`${reportData.budgetUtilization.toFixed(1)}%`} />
+            <div id="financial-report-export" className="space-y-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <KpiCard title="Total Budget" value={formatCurrency(reportData.totalBudget)} subtext={selectedProjectIds.length > 0 ? `${selectedProjectIds.length} projects` : 'All'}/>
+                    <KpiCard title="Actual Cost" value={formatCurrency(reportData.totalActualCost)} subtext={`${filteredTasks.length} tasks`}/>
+                    <KpiCard title="Variance" value={formatCurrency(reportData.variance)} colorClass={reportData.variance >= 0 ? 'text-green-500' : 'text-red-500'}/>
+                    <KpiCard title="Utilization" value={`${reportData.budgetUtilization.toFixed(1)}%`} />
                 </div>
 
-                {/* Charts */}
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                    <div className="lg:col-span-3 bg-base-100 p-6 rounded-xl shadow-md dark:bg-gray-800">
-                        <h3 className="text-lg font-bold dark:text-white">Spending Over Time</h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <AreaChart data={reportData.spendingOverTime} margin={{ top: 20, right: 20, left: 20, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                                <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#9CA3AF' }} />
-                                <YAxis tickFormatter={(val: string | number) => `$${Number(val)/1000}k`} tick={{ fill: '#9CA3AF' }}/>
-                                <Tooltip wrapperClassName="dark:!bg-gray-700/80 dark:!border-gray-600" formatter={(value: string | number) => formatCurrency(Number(value))} />
-                                <Area type="monotone" dataKey="cost" stroke="#65081b" fill="#65081b" fillOpacity={0.2} />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                    <div className="lg:col-span-3 bg-base-100 p-4 rounded-xl shadow-md dark:bg-gray-800">
+                        <h3 className="text-sm font-bold dark:text-white mb-4 uppercase">Spending Over Time</h3>
+                        <div className="h-[250px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={reportData.spendingOverTime} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1} />
+                                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9CA3AF' }} />
+                                    <YAxis tickFormatter={(val: string | number) => `$${Number(val)/1000}k`} tick={{ fontSize: 10, fill: '#9CA3AF' }}/>
+                                    <Tooltip wrapperClassName="dark:!bg-gray-700/80 dark:!border-gray-600" formatter={(value: string | number) => formatCurrency(Number(value))} />
+                                    <Area type="monotone" dataKey="cost" stroke="#65081b" fill="#65081b" fillOpacity={0.2} />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
-                    <div className="lg:col-span-2 bg-base-100 p-6 rounded-xl shadow-md dark:bg-gray-800">
-                        <h3 className="text-lg font-bold dark:text-white">Expense Breakdown by Category</h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <PieChart>
-                                <Pie data={reportData.categoryBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={3}>
-                                    {reportData.categoryBreakdown.map((entry, index) => <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />)}
-                                </Pie>
-                                <Legend iconType="circle" />
-                                <Tooltip wrapperClassName="dark:!bg-gray-700/80 dark:!border-gray-600" formatter={(value: string | number) => formatCurrency(Number(value))} />
-                            </PieChart>
-                        </ResponsiveContainer>
+                    <div className="lg:col-span-2 bg-base-100 p-4 rounded-xl shadow-md dark:bg-gray-800">
+                        <h3 className="text-sm font-bold dark:text-white mb-4 uppercase">Expense Categories</h3>
+                        <div className="h-[250px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie data={reportData.categoryBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3}>
+                                        {reportData.categoryBreakdown.map((entry, index) => <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />)}
+                                    </Pie>
+                                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+                                    <Tooltip wrapperClassName="dark:!bg-gray-700/80 dark:!border-gray-600" formatter={(value: string | number) => formatCurrency(Number(value))} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
                 </div>
             </div>
 
-             <div className="bg-base-100 rounded-xl shadow-md overflow-x-auto dark:bg-gray-800">
-                 <h3 className="text-lg font-bold p-6 text-gray-900 dark:text-gray-200">Detailed Report</h3>
-                <table id="financial-details-table" className="min-w-full divide-y divide-base-300 dark:divide-gray-700">
-                    <thead className="bg-base-200 dark:bg-gray-700/50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200">Project</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200">Task</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200">Est. Cost</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200">Actual Cost</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200">Variance</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200">Status</th>
-                             <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200">Completed On</th>
-                        </tr>
-                    </thead>
-                     <tbody className="bg-base-100 divide-y divide-base-200 dark:bg-gray-800 dark:divide-gray-700">
-                        {filteredTasks.map(task => {
-                            const est = task.estimatedCost || 0;
-                            const act = task.completionDetails?.actualCost || 0;
-                            const variance = est - act;
-                            return (
-                            <tr key={task.id}>
-                                <td className="px-6 py-4 font-medium text-gray-800 dark:text-gray-300">{task.projectName}</td>
-                                <td className="px-6 py-4 text-gray-800 dark:text-gray-300">{task.name}</td>
-                                <td className="px-6 py-4 text-gray-800 dark:text-gray-300">{formatCurrency(est)}</td>
-                                <td className="px-6 py-4 text-gray-900 dark:text-gray-200 font-medium">{formatCurrency(act)}</td>
-                                <td className={`px-6 py-4 font-semibold ${variance >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>{formatCurrency(variance)}</td>
-                                <td className="px-6 py-4 text-gray-800 dark:text-gray-300">{task.status}</td>
-                                <td className="px-6 py-4 text-gray-800 dark:text-gray-300">{task.completionDetails ? formatDate(new Date(task.completionDetails.completedAt)) : 'N/A'}</td>
+             <div className="bg-base-100 rounded-xl shadow-md overflow-hidden dark:bg-gray-800">
+                 <h3 className="text-sm font-bold p-4 text-gray-900 dark:text-gray-200 uppercase">Detailed Financial View</h3>
+                 <div className="overflow-x-auto">
+                    <table id="financial-details-table" className="min-w-full divide-y divide-base-300 dark:divide-gray-700">
+                        <thead className="bg-base-200 dark:bg-gray-700/50">
+                            <tr>
+                                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200 whitespace-nowrap">Project</th>
+                                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200 whitespace-nowrap">Task</th>
+                                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200 whitespace-nowrap">Est. Cost</th>
+                                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200 whitespace-nowrap">Actual Cost</th>
+                                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200 whitespace-nowrap">Variance</th>
+                                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200 whitespace-nowrap">Status</th>
+                                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-900 uppercase tracking-wider dark:text-gray-200 whitespace-nowrap">Completed</th>
                             </tr>
-                        )})}
-                        {filteredTasks.length === 0 && (
-                            <tr><td colSpan={7} className="text-center py-10 text-gray-500 dark:text-gray-400">No data matches the current filters.</td></tr>
-                        )}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="bg-base-100 divide-y divide-base-200 dark:bg-gray-800 dark:divide-gray-700">
+                            {filteredTasks.map(task => {
+                                const est = task.estimatedCost || 0;
+                                const act = task.completionDetails?.actualCost || 0;
+                                const variance = est - act;
+                                return (
+                                <tr key={task.id} className="text-xs">
+                                    <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-300 whitespace-nowrap">{task.projectName}</td>
+                                    <td className="px-4 py-3 text-gray-800 dark:text-gray-300 whitespace-nowrap">{task.name}</td>
+                                    <td className="px-4 py-3 text-gray-800 dark:text-gray-300 whitespace-nowrap">{formatCurrency(est)}</td>
+                                    <td className="px-4 py-3 text-gray-900 dark:text-gray-200 font-medium whitespace-nowrap">{formatCurrency(act)}</td>
+                                    <td className={`px-4 py-3 font-semibold whitespace-nowrap ${variance >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>{formatCurrency(variance)}</td>
+                                    <td className="px-4 py-3 text-gray-800 dark:text-gray-300 whitespace-nowrap">{task.status}</td>
+                                    <td className="px-4 py-3 text-gray-800 dark:text-gray-300 whitespace-nowrap">{task.completionDetails ? formatDate(new Date(task.completionDetails.completedAt)) : 'N/A'}</td>
+                                </tr>
+                            )})}
+                            {filteredTasks.length === 0 && (
+                                <tr><td colSpan={7} className="text-center py-10 text-gray-500 dark:text-gray-400">No matching data found.</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                 </div>
             </div>
         </div>
     );

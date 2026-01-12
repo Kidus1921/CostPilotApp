@@ -31,7 +31,7 @@ const SortableHeader: FC<{
     const direction = isSorted ? sortConfig?.direction : null;
 
     return (
-        <th scope="col" className="px-6 py-4 font-semibold tracking-wider cursor-pointer hover:bg-base-300 dark:hover:bg-gray-600 transition-colors" onClick={() => requestSort(sortKey)}>
+        <th scope="col" className="px-4 py-3 font-semibold tracking-wider cursor-pointer hover:bg-base-300 dark:hover:bg-gray-600 transition-colors whitespace-nowrap" onClick={() => requestSort(sortKey)}>
             <div className="flex items-center gap-1 uppercase">
                 {title}
                 {isSorted && (direction === 'ascending' ? <ArrowUpIcon className="w-4 h-4" /> : <ArrowDownIcon className="w-4 h-4" />)}
@@ -79,7 +79,6 @@ const FinancialProjectsTab: React.FC = () => {
         return projects.find(p => p.id === selectedProjectId);
     }, [projects, selectedProjectId]);
 
-    // Logic for sorting Projects (when All is selected)
     const sortedProjects = useMemo(() => {
         let projs = [...projects];
         if (sortConfig) {
@@ -109,7 +108,6 @@ const FinancialProjectsTab: React.FC = () => {
         return projs;
     }, [projects, sortConfig]);
 
-    // Logic for sorting Tasks (when a Specific Project is selected)
     const sortedTasks = useMemo(() => {
         if (!selectedProject) return [];
         let tasks = [...(selectedProject.tasks || [])];
@@ -143,11 +141,11 @@ const FinancialProjectsTab: React.FC = () => {
     }, [selectedProject, sortConfig]);
 
 
-    if (loading) return <div>Loading projects...</div>;
+    if (loading) return <div className="p-4 text-center">Loading projects...</div>;
 
     if (error) {
         return (
-            <div className="p-6 text-center text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800/50">
+            <div className="p-4 text-center text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800/50">
                 <h3 className="text-lg font-bold">An Error Occurred</h3>
                 <p className="mt-2">{error}</p>
             </div>
@@ -155,9 +153,9 @@ const FinancialProjectsTab: React.FC = () => {
     }
 
     return (
-        <div className="space-y-6">
-            <div className="bg-base-100 p-6 rounded-xl shadow-md dark:bg-gray-800">
-                <div className="flex flex-wrap items-center gap-4">
+        <div className="space-y-4">
+            <div className="bg-base-100 p-4 rounded-xl shadow-md dark:bg-gray-800">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                     <label htmlFor="project-filter" className="text-lg font-semibold text-base-content dark:text-gray-200">
                         View Scope:
                     </label>
@@ -166,10 +164,9 @@ const FinancialProjectsTab: React.FC = () => {
                         value={selectedProjectId}
                         onChange={(e) => {
                             setSelectedProjectId(e.target.value);
-                            // Reset sort when switching views to avoid confusing states
                             setSortConfig(e.target.value === 'all' ? { key: 'projectName', direction: 'ascending' } : { key: 'name', direction: 'ascending' });
                         }}
-                        className="w-full max-w-sm px-4 py-3 border border-gray-300 rounded-lg bg-base-100 focus:outline-none focus:ring-2 focus:ring-brand-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        className="w-full sm:max-w-sm px-4 py-2 border border-gray-300 rounded-lg bg-base-100 focus:outline-none focus:ring-2 focus:ring-brand-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     >
                         <option value="all">All Projects (Portfolio Budget)</option>
                         {projects.map(p => (
@@ -180,18 +177,17 @@ const FinancialProjectsTab: React.FC = () => {
             </div>
 
             {selectedProjectId === 'all' ? (
-                // PROJECT LEVEL TABLE
-                <div className="bg-base-100 p-6 sm:p-8 rounded-xl shadow-md dark:bg-gray-800">
-                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
-                        <h3 className="text-2xl font-bold text-base-content dark:text-white">Portfolio Financial Report</h3>
+                <div className="bg-base-100 p-4 rounded-xl shadow-md dark:bg-gray-800">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4">
+                        <h3 className="text-xl font-bold text-base-content dark:text-white">Portfolio Financial Report</h3>
                         <button 
                             onClick={() => exportTableToExcel('project-financials-table', 'portfolio-report.xlsx')}
-                            className="bg-green-600 text-white font-bold py-2 px-3 rounded-lg shadow-sm hover:bg-green-700 flex items-center text-sm gap-2 transition-colors self-start sm:self-center">
+                            className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-sm hover:bg-green-700 flex items-center text-sm gap-2 transition-colors self-start w-full sm:w-auto justify-center">
                             <FileExcelIcon /> Export to Excel
                         </button>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table id="project-financials-table" className="w-full text-sm text-left">
+                    <div className="overflow-x-auto -mx-4 sm:mx-0">
+                        <table id="project-financials-table" className="min-w-full text-sm text-left">
                             <thead className="text-xs text-base-content-secondary bg-base-200 dark:bg-gray-700/50 dark:text-gray-400">
                                 <tr>
                                     <SortableHeader sortKey="projectName" title="Project Name" sortConfig={sortConfig} requestSort={requestSort} />
@@ -208,16 +204,16 @@ const FinancialProjectsTab: React.FC = () => {
                                     const variance = budget - spent;
                                     return (
                                         <tr key={project.id} className="border-b border-base-200 dark:border-gray-700 even:bg-gray-50 dark:even:bg-gray-700/50 hover:bg-teal-50 dark:hover:bg-gray-700 transition-colors cursor-pointer" onClick={() => setSelectedProjectId(project.id!)}>
-                                            <td className="px-6 py-4 align-middle font-semibold text-base-content dark:text-gray-100">{project.title}</td>
-                                            <td className="px-6 py-4 align-middle text-base-content dark:text-gray-200">{formatCurrency(budget)}</td>
-                                            <td className="px-6 py-4 align-middle text-base-content dark:text-gray-200">{formatCurrency(spent)}</td>
-                                            <td className={`px-6 py-4 align-middle font-bold ${variance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(variance)}</td>
-                                            <td className="px-6 py-4 align-middle"><StatusBadge status={project.status} /></td>
+                                            <td className="px-4 py-4 whitespace-nowrap align-middle font-semibold text-base-content dark:text-gray-100">{project.title}</td>
+                                            <td className="px-4 py-4 whitespace-nowrap align-middle text-base-content dark:text-gray-200">{formatCurrency(budget)}</td>
+                                            <td className="px-4 py-4 whitespace-nowrap align-middle text-base-content dark:text-gray-200">{formatCurrency(spent)}</td>
+                                            <td className={`px-4 py-4 whitespace-nowrap align-middle font-bold ${variance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(variance)}</td>
+                                            <td className="px-4 py-4 whitespace-nowrap align-middle"><StatusBadge status={project.status} /></td>
                                         </tr>
                                     );
                                 }) : (
                                     <tr>
-                                        <td colSpan={5} className="text-center py-16 text-gray-500 dark:text-gray-400">
+                                        <td colSpan={5} className="text-center py-10 text-gray-500 dark:text-gray-400">
                                             No projects found.
                                         </td>
                                     </tr>
@@ -227,18 +223,17 @@ const FinancialProjectsTab: React.FC = () => {
                     </div>
                 </div>
             ) : (
-                // TASK LEVEL TABLE
-                <div className="bg-base-100 p-6 sm:p-8 rounded-xl shadow-md dark:bg-gray-800">
-                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
-                        <h3 className="text-2xl font-bold text-base-content dark:text-white">Detailed Task Report: {selectedProject?.title}</h3>
+                <div className="bg-base-100 p-4 rounded-xl shadow-md dark:bg-gray-800">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4">
+                        <h3 className="text-xl font-bold text-base-content dark:text-white">Detailed Task Report: {selectedProject?.title}</h3>
                         <button 
                             onClick={() => exportTableToExcel('task-financials-table', `tasks-${selectedProject?.title.replace(/\s+/g, '-')}.xlsx`)}
-                            className="bg-green-600 text-white font-bold py-2 px-3 rounded-lg shadow-sm hover:bg-green-700 flex items-center text-sm gap-2 transition-colors self-start sm:self-center">
+                            className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-sm hover:bg-green-700 flex items-center text-sm gap-2 transition-colors self-start w-full sm:w-auto justify-center">
                             <FileExcelIcon /> Export to Excel
                         </button>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table id="task-financials-table" className="w-full text-sm text-left">
+                    <div className="overflow-x-auto -mx-4 sm:mx-0">
+                        <table id="task-financials-table" className="min-w-full text-sm text-left">
                             <thead className="text-xs text-base-content-secondary bg-base-200 dark:bg-gray-700/50 dark:text-gray-400">
                                 <tr>
                                     <SortableHeader sortKey="name" title="Task Name" sortConfig={sortConfig} requestSort={requestSort} />
@@ -255,19 +250,18 @@ const FinancialProjectsTab: React.FC = () => {
                                     const variance = estimatedCost - actualCost;
                                     return (
                                     <tr key={task.id} className="border-b border-base-200 dark:border-gray-700 even:bg-gray-50 dark:even:bg-gray-700/50 hover:bg-teal-50 dark:hover:bg-gray-700 transition-colors">
-                                        <td className="px-6 py-4 align-middle text-base-content dark:text-gray-200">{task.name}</td>
-                                        <td className="px-6 py-4 align-middle text-base-content-secondary dark:text-gray-300">{formatCurrency(estimatedCost)}</td>
-                                        <td className="px-6 py-4 align-middle text-base-content-secondary dark:text-gray-300">{formatCurrency(actualCost)}</td>
-                                        <td className={`px-6 py-4 align-middle font-bold ${variance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(variance)}</td>
-                                        <td className="px-6 py-4 align-middle"><StatusBadge status={task.status} /></td>
+                                        <td className="px-4 py-4 whitespace-nowrap align-middle text-base-content dark:text-gray-200">{task.name}</td>
+                                        <td className="px-4 py-4 whitespace-nowrap align-middle text-base-content-secondary dark:text-gray-300">{formatCurrency(estimatedCost)}</td>
+                                        <td className="px-4 py-4 whitespace-nowrap align-middle text-base-content-secondary dark:text-gray-300">{formatCurrency(actualCost)}</td>
+                                        <td className={`px-4 py-4 whitespace-nowrap align-middle font-bold ${variance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(variance)}</td>
+                                        <td className="px-4 py-4 whitespace-nowrap align-middle"><StatusBadge status={task.status} /></td>
                                     </tr>
                                 )}) : (
-                                     <tr>
-                                        <td colSpan={5} className="text-center py-16">
+                                    <tr>
+                                        <td colSpan={5} className="text-center py-10">
                                             <div className="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
-                                                <FolderIcon className="w-12 h-12 mb-2 text-gray-400"/>
-                                                <p className="font-semibold text-lg">No Tasks Found</p>
-                                                <p className="text-sm">There are no tasks to display for this project.</p>
+                                                <FolderIcon className="w-10 h-10 mb-2 text-gray-400"/>
+                                                <p className="font-semibold">No Tasks Found</p>
                                             </div>
                                         </td>
                                     </tr>

@@ -12,6 +12,19 @@
       window.process = { env: { NODE_ENV: 'development' } };
     </script>
     <style>
+      @font-face {
+        font-family: 'Nokia Pure Headline';
+        src: url('https://fonts.cdnfonts.com/s/19225/NokiaPureHeadline_Regular.woff') format('woff');
+        font-weight: normal;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: 'Nokia Pure Headline';
+        src: url('https://fonts.cdnfonts.com/s/19225/NokiaPureHeadline_Bold.woff') format('woff');
+        font-weight: bold;
+        font-style: normal;
+      }
+
       :root {
         /* Light Mode: Primary = Deep Red (#65081b), Secondary = Gold (#f3c613) */
         --color-brand-primary: 101 8 27;
@@ -25,12 +38,19 @@
         --color-brand-primary-content: 101 8 27; /* Deep Red text on Gold */
         --color-brand-secondary: 101 8 27;
       }
+
+      body {
+        font-family: 'Nokia Pure Headline', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      }
     </style>
     <script>
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
+            fontFamily: {
+              sans: ['Nokia Pure Headline', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            },
             colors: {
               'brand-primary': 'rgb(var(--color-brand-primary) / <alpha-value>)', 
               'brand-primary-content': 'rgb(var(--color-brand-primary-content) / <alpha-value>)',
@@ -60,7 +80,7 @@
 }
 </script>
 </head>
-  <body class="bg-base-200 dark:bg-gray-900">
+  <body class="bg-base-200 dark:bg-gray-900 antialiased">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

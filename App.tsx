@@ -99,10 +99,12 @@ const MainLayout: React.FC = () => {
     return (
         <div className="flex h-screen bg-base-200 text-base-content font-sans dark:bg-gray-900 dark:text-gray-200">
             <Sidebar activePage={activePage} setActivePage={handleSetPage} />
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 <Header theme={theme} toggleTheme={toggleTheme} setActivePage={handleSetPage} />
-                <main className="flex-1 overflow-x-hidden overflow-y-auto bg-base-200 p-4 sm:p-6 lg:p-8 dark:bg-gray-900">
-                    {renderPage()}
+                <main className="flex-1 overflow-x-hidden overflow-y-auto bg-base-200 p-2 sm:p-4 dark:bg-gray-900">
+                    <div className="w-full">
+                        {renderPage()}
+                    </div>
                 </main>
             </div>
         </div>
