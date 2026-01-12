@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Project, Task, ProjectStatus, ExpenseCategory, TaskStatus } from '../../types';
@@ -209,8 +210,18 @@ const FinancialReportsTab: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <h2 className="text-2xl font-bold text-base-content dark:text-gray-100">Advanced Financial Analytics</h2>
                 <div className="flex gap-2">
-                    <button onClick={() => exportTableToExcel('financial-details-table', 'financial-details.xlsx')} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 flex items-center gap-2"><FileExcelIcon /> Excel</button>
-                    <button onClick={() => exportElementAsPDF('financial-report-export', 'financial-report.pdf')} className="bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-red-700 flex items-center gap-2"><FilePdfIcon/> PDF</button>
+                    <button 
+                        onClick={() => exportTableToExcel('financial-details-table', 'financial-details.xlsx')} 
+                        className="bg-brand-primary text-brand-primary-content font-bold py-2 px-4 rounded-lg shadow-md hover:bg-opacity-90 flex items-center gap-2 transition-opacity"
+                    >
+                        <FileExcelIcon className="w-5 h-5" /> Excel Export
+                    </button>
+                    <button 
+                        onClick={() => exportElementAsPDF('financial-report-export', 'financial-report.pdf')} 
+                        className="bg-brand-primary text-brand-primary-content font-bold py-2 px-4 rounded-lg shadow-md hover:bg-opacity-90 flex items-center gap-2 transition-opacity"
+                    >
+                        <FilePdfIcon className="w-5 h-5"/> PDF Export
+                    </button>
                 </div>
             </div>
 

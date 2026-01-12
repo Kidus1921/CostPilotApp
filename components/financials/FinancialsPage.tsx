@@ -1,10 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import FinancialDashboard from './FinancialDashboard';
 import FinancialProjectsTab from './FinancialProjectsTab';
 import FinancialApprovalsTab from './FinancialApprovalsTab';
 import FinancialReportsTab from './FinancialReportsTab';
+import FinancialTeamsTab from './FinancialTeamsTab';
 
-type Tab = 'Overview' | 'Projects' | 'Approvals' | 'Reports';
+type Tab = 'Overview' | 'Projects' | 'Approvals' | 'Reports' | 'Team Status';
 
 const FinancialsPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<Tab>('Overview');
@@ -19,6 +21,8 @@ const FinancialsPage: React.FC = () => {
                 return <FinancialApprovalsTab />;
             case 'Reports':
                 return <FinancialReportsTab />;
+            case 'Team Status':
+                return <FinancialTeamsTab />;
             default:
                 return null;
         }
@@ -45,10 +49,11 @@ const FinancialsPage: React.FC = () => {
 
             {/* Tabs */}
             <div className="border-b border-base-300 dark:border-gray-700">
-                <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
                     <TabButton tabName="Overview" />
                     <TabButton tabName="Projects" />
                     <TabButton tabName="Approvals" />
+                    <TabButton tabName="Team Status" />
                     <TabButton tabName="Reports" />
                 </nav>
             </div>
