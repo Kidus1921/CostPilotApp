@@ -1,141 +1,146 @@
 
-import React, { useState, useEffect } from 'react';
-import { AppProvider, useAppContext } from './AppContext';
-import Sidebar from './components/Sidebar';
-import Header from './components/Header';
-import Dashboard from './components/Dashboard';
-import ProjectsPage from './components/ProjectsPage';
-import SettingsPage from './components/SettingsPage';
-import FinancialsPage from './components/financials/FinancialsPage';
-import NotificationsPage from './components/notifications/NotificationsPage';
-import LoginPage from './components/LoginPage';
-import { UserRole, UserStatus, User } from './types';
-import { supabase } from './supabaseClient';
+    import React, { useState, useEffect } from 'react';
+    import { AppProvider, useAppContext } from './AppContext';
+    import Sidebar from './components/Sidebar';
+    import Header from './components/Header';
+    import Dashboard from './components/Dashboard';
+    import ProjectsPage from './components/ProjectsPage';
+    import SettingsPage from './components/SettingsPage';
+    import FinancialsPage from './components/financials/FinancialsPage';
+    import NotificationsPage from './components/notifications/NotificationsPage';
+    import LoginPage from './components/LoginPage';
+    import { UserRole, UserStatus, User } from './types';
+    import { supabase } from './supabaseClient';
 
-const MainLayout: React.FC = () => {
-    const { currentUser, loading } = useAppContext();
-    const [activePage, setActivePage] = useState('Dashboard');
-    const [settingsTab, setSettingsTab] = useState('Profile');
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('theme') as 'light' | 'dark') || 'light');
+    const MainLayout: React.FC = () => {
+        const { currentUser, loading, authChecked } = useAppContext();
+        const [activePage, setActivePage] = useState('Dashboard');
+        const [settingsTab, setSettingsTab] = useState('Profile');
+        const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+        const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('theme') as 'light' | 'dark') || 'light');
 
-    useEffect(() => {
-        if (theme === 'dark') document.documentElement.classList.add('dark');
-        else document.documentElement.classList.remove('dark');
-        localStorage.setItem('theme', theme);
-    }, [theme]);
+        useEffect(() => {
+            if (theme === 'dark') document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+            localStorage.setItem('theme', theme);
+        }, [theme]);
 
-    const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
+        const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
-    const handleLogin = async (email: string, password?: string) => {
-        try {
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password: password || '' });
-            if (error) return { success: false, error: error.message };
-            if (data.user) await supabase.from('users').update({ lastLogin: new Date().toISOString() }).eq('id', data.user.id);
-            return { success: true };
-        } catch (e: any) {
-            return { success: false, error: e.message };
-        }
-    };
-
-    const handleSignup = async (email: string, password?: string, name?: string) => {
-        try {
-            const { data, error } = await supabase.auth.signUp({ email, password: password || '', options: { data: { name } } });
-            if (error) return { success: false, error: error.message };
-            if (data.user) {
-                const newUser: User = {
-                    id: data.user.id,
-                    email,
-                    name: name || email.split('@')[0],
-                    role: UserRole.ProjectManager,
-                    status: UserStatus.Active,
-                    phone: '',
-                    teamId: null,
-                    lastLogin: new Date().toISOString(),
-                    privileges: []
-                };
-                await supabase.from('users').insert([newUser]);
+        const handleLogin = async (email: string, password?: string) => {
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({ email, password: password || '' });
+                if (error) return { success: false, error: error.message };
+                if (data.user) await supabase.from('users').update({ lastLogin: new Date().toISOString() }).eq('id', data.user.id);
+                return { success: true };
+            } catch (e: any) {
+                return { success: false, error: e.message };
             }
-            return { success: true };
-        } catch (e: any) {
-            return { success: false, error: e.message };
-        }
-    };
-
-    const hasAccess = (page: string, role: UserRole): boolean => {
-        const accessMap: Record<string, UserRole[]> = {
-            'Dashboard': [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance],
-            'Projects': [UserRole.Admin, UserRole.ProjectManager],
-            'Financials': [UserRole.Admin, UserRole.Finance],
-            'Notifications': [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance],
-            'Settings': [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance],
         };
-        return accessMap[page]?.includes(role) ?? false;
-    };
 
-    const handleSetPage = (page: string, subTab?: string) => {
-        if (currentUser && hasAccess(page, currentUser.role)) {
-            setActivePage(page);
-            if (page === 'Settings') setSettingsTab(subTab || 'Profile');
-        }
-    };
+        const handleSignup = async (email: string, password?: string, name?: string) => {
+            try {
+                const { data, error } = await supabase.auth.signUp({ email, password: password || '', options: { data: { name } } });
+                if (error) return { success: false, error: error.message };
+                if (data.user) {
+                    const newUser: User = {
+                        id: data.user.id,
+                        email,
+                        name: name || email.split('@')[0],
+                        role: UserRole.ProjectManager,
+                        status: UserStatus.Active,
+                        phone: '',
+                        teamId: null,
+                        lastLogin: new Date().toISOString(),
+                        privileges: []
+                    };
+                    await supabase.from('users').insert([newUser]);
+                }
+                return { success: true };
+            } catch (e: any) {
+                return { success: false, error: e.message };
+            }
+        };
 
-    if (loading) return (
-        <div className="flex h-screen w-screen flex-col items-center justify-center bg-gray-900 font-sans">
-            <div className="relative w-16 h-16 mb-6">
-                <div className="absolute inset-0 rounded-full border-4 border-brand-primary/10"></div>
-                <div className="absolute inset-0 rounded-full border-4 border-t-brand-primary animate-spin"></div>
-                <div className="absolute inset-2 rounded-full border-4 border-b-brand-secondary/40 animate-[spin_2s_linear_infinite_reverse]"></div>
+        const hasAccess = (page: string, role: UserRole): boolean => {
+            const accessMap: Record<string, UserRole[]> = {
+                'Dashboard': [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance],
+                'Projects': [UserRole.Admin, UserRole.ProjectManager],
+                'Financials': [UserRole.Admin, UserRole.Finance],
+                'Notifications': [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance],
+                'Settings': [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance],
+            };
+            return accessMap[page]?.includes(role) ?? false;
+        };
+
+        const handleSetPage = (page: string, subTab?: string) => {
+            if (currentUser && hasAccess(page, currentUser.role)) {
+                setActivePage(page);
+                if (page === 'Settings') setSettingsTab(subTab || 'Profile');
+            }
+        };
+
+        // Global loading state while AppContext restores session
+        // authChecked ensures we don't show the login page while Supabase is still thinking
+        if (!authChecked || (loading && !currentUser)) return (
+            <div className="flex h-screen w-screen flex-col items-center justify-center bg-gray-900 font-sans">
+                <div className="relative w-16 h-16 mb-6">
+                    <div className="absolute inset-0 rounded-full border-4 border-brand-primary/10"></div>
+                    <div className="absolute inset-0 rounded-full border-4 border-t-brand-primary animate-spin"></div>
+                    <div className="absolute inset-2 rounded-full border-4 border-b-brand-secondary/40 animate-[spin_2s_linear_infinite_reverse]"></div>
+                </div>
+                <div className="text-center">
+                    <h1 className="text-xl font-bold text-white tracking-[0.3em] uppercase mb-1">EDFM</h1>
+                    <p className="text-gray-500 text-[10px] tracking-widest uppercase animate-pulse">System Loading</p>
+                </div>
             </div>
-            <div className="text-center">
-                <h1 className="text-xl font-bold text-white tracking-[0.3em] uppercase mb-1">EDFM</h1>
-                <p className="text-gray-500 text-[10px] tracking-widest uppercase animate-pulse">System Loading</p>
-            </div>
-        </div>
-    );
+        );
 
-    if (!currentUser) return <LoginPage onLogin={handleLogin} onSignup={handleSignup} />;
-
-    const renderPage = () => {
-        switch (activePage) {
-            case 'Dashboard': return <Dashboard setActivePage={handleSetPage} />;
-            case 'Projects': return <ProjectsPage />;
-            case 'Financials': return <FinancialsPage />;
-            case 'Notifications': return <NotificationsPage onOpenSettings={() => handleSetPage('Settings', 'Notifications')} />;
-            case 'Settings': return <SettingsPage initialTab={settingsTab} />;
-            default: return <Dashboard setActivePage={handleSetPage} />;
+        // After auth is checked, if no user exists, show Login page
+        if (!currentUser) {
+            return <LoginPage onLogin={handleLogin} onSignup={handleSignup} />;
         }
-    };
 
-    return (
-        <div className="flex h-screen bg-base-200 text-black font-sans dark:bg-gray-900 dark:text-gray-200 overflow-hidden">
-            <Sidebar 
-                activePage={activePage} 
-                setActivePage={handleSetPage} 
-                isMobileMenuOpen={isMobileMenuOpen}
-                setMobileMenuOpen={setIsMobileMenuOpen}
-            />
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-                <Header 
-                    theme={theme} 
-                    toggleTheme={toggleTheme} 
+        const renderPage = () => {
+            switch (activePage) {
+                case 'Dashboard': return <Dashboard setActivePage={handleSetPage} />;
+                case 'Projects': return <ProjectsPage />;
+                case 'Financials': return <FinancialsPage />;
+                case 'Notifications': return <NotificationsPage onOpenSettings={() => handleSetPage('Settings', 'Notifications')} />;
+                case 'Settings': return <SettingsPage initialTab={settingsTab} />;
+                default: return <Dashboard setActivePage={handleSetPage} />;
+            }
+        };
+
+        return (
+            <div className="flex h-screen bg-base-200 text-black font-sans dark:bg-gray-900 dark:text-gray-200 overflow-hidden">
+                <Sidebar 
+                    activePage={activePage} 
                     setActivePage={handleSetPage} 
-                    onToggleMobileMenu={() => setIsMobileMenuOpen(true)}
+                    isMobileMenuOpen={isMobileMenuOpen}
+                    setMobileMenuOpen={setIsMobileMenuOpen}
                 />
-                <main className="flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-4 bg-base-200 dark:bg-gray-900 pb-24 md:pb-4">
-                    <div className="w-full h-full text-black dark:text-gray-100">
-                        {renderPage()}
-                    </div>
-                </main>
+                <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+                    <Header 
+                        theme={theme} 
+                        toggleTheme={toggleTheme} 
+                        setActivePage={handleSetPage} 
+                        onToggleMobileMenu={() => setIsMobileMenuOpen(true)}
+                    />
+                    <main className="flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-4 bg-base-200 dark:bg-gray-900 pb-24 md:pb-4">
+                        <div className="w-full h-full text-black dark:text-gray-100">
+                            {renderPage()}
+                        </div>
+                    </main>
+                </div>
             </div>
-        </div>
+        );
+    };
+
+    const App: React.FC = () => (
+        <AppProvider>
+            <MainLayout />
+        </AppProvider>
     );
-};
 
-const App: React.FC = () => (
-    <AppProvider>
-        <MainLayout />
-    </AppProvider>
-);
-
-export default App;
+    export default App;

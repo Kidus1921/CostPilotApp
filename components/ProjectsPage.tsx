@@ -141,7 +141,7 @@ const TaskList: FC<{ project: Project; onUpdateTask: (task: Task) => void; onAdd
 
     const projectMembers = useMemo(() => {
         const members = [project.teamLeader, ...(project.team || [])];
-        return members.filter((u, i, self) => i === self.findIndex(t => t.id === u.id));
+        return members.filter((u, i, self) => u && i === self.findIndex(t => t && t.id === u.id));
     }, [project.team, project.teamLeader]);
 
     const confirmComplete = (details: any) => {
@@ -456,7 +456,6 @@ const ProjectDetail: FC<{ project: Project; onClose: () => void; onEdit: () => v
         logActivity('Deleted Task', `${name} from ${currentProject.title}`, currentUser);
     };
 
-    // Determine header accent color strictly
     const getAccentColor = () => {
         if (currentProject.status === ProjectStatus.Completed) return 'border-green-500';
         if (currentProject.status === ProjectStatus.Rejected) return 'border-brand-tertiary';
@@ -629,6 +628,7 @@ const ProjectsPage: React.FC = () => {
                     description: data.description,
                     endDate: data.endDate,
                     teamLeader: data.teamLeader,
+                    team: data.team,
                     tags: data.tags,
                     budget: data.budget
                 }).eq('id', projectToEdit.id);
@@ -643,7 +643,6 @@ const ProjectsPage: React.FC = () => {
                     spent: 0, 
                     tasks: [], 
                     documents: [], 
-                    team: [data.teamLeader], 
                     startDate: new Date().toISOString().split('T')[0], 
                     isAccessEnabled: true 
                 };
@@ -675,12 +674,10 @@ const ProjectsPage: React.FC = () => {
             
             logActivity('Deleted Project', p.title, currentUser);
             
-            // Critical: If we are in the detail view, close it
             if (selectedProjectId === p.id) {
                 setSelectedProjectId(null);
             }
             
-            // Refresh global state
             await refreshData();
         } catch (e) {
             console.error(e);
