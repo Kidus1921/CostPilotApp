@@ -35,11 +35,10 @@ const ProfileSettingsTab: React.FC<ProfileSettingsTabProps> = ({ currentUser, on
         }
     };
 
-    // Shared negative input styling
-    const inputClasses = "w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-transparent outline-none text-white font-medium placeholder-gray-500 transition-all shadow-inner";
+    const inputClasses = "w-full px-4 py-3 border border-base-300 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-transparent outline-none bg-white text-black dark:bg-[#090909] dark:text-white font-medium placeholder-gray-500 transition-all shadow-inner";
 
     return (
-        <div className="max-w-3xl mx-auto bg-base-100 dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-base-300 dark:border-gray-700">
+        <div className="max-w-3xl mx-auto bg-base-100 dark:bg-[#111111] p-8 rounded-2xl shadow-sm border border-base-300 dark:border-white/10">
             <h3 className="text-xl font-bold text-base-content dark:text-white mb-8 uppercase tracking-widest">My Digital Profile</h3>
             
             <div className="flex flex-col sm:flex-row items-center gap-8 mb-10">
@@ -56,7 +55,7 @@ const ProfileSettingsTab: React.FC<ProfileSettingsTabProps> = ({ currentUser, on
             <form onSubmit={handleSave} className="space-y-6">
                 <div className="grid grid-cols-1 gap-6">
                     <div>
-                        <label htmlFor="name" className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Name</label>
+                        <label htmlFor="name" className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 ml-1">Name</label>
                         <input 
                             type="text" 
                             id="name" 
@@ -67,7 +66,7 @@ const ProfileSettingsTab: React.FC<ProfileSettingsTabProps> = ({ currentUser, on
                         />
                     </div>
                     <div>
-                        <label htmlFor="phone" className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Contact</label>
+                        <label htmlFor="phone" className="block text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 ml-1">Contact</label>
                         <input 
                             type="tel" 
                             id="phone" 
@@ -79,7 +78,7 @@ const ProfileSettingsTab: React.FC<ProfileSettingsTabProps> = ({ currentUser, on
                     </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-8 border-t border-base-200 dark:border-gray-700 mt-4">
+                <div className="flex items-center justify-between pt-8 border-t border-base-200 dark:border-white/5 mt-4">
                      <span className={`text-xs font-bold uppercase tracking-widest transition-opacity duration-300 ${status === 'saved' ? 'text-green-600' : status === 'error' ? 'text-brand-tertiary' : 'opacity-0'}`}>
                         {status === 'saved' ? 'SYNC SUCCESSFUL' : 'SYNC FAILURE'}
                     </span>

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
 import { User, UserRole } from '../../types';
-import { SearchIcon, CheckCircleIcon, XCircleIcon, UserGroupIcon } from '../IconComponents';
+import { SearchIcon, CheckCircleIcon, XCircleIcon } from '../IconComponents';
 import Avatar from '../Avatar';
 import { logActivity } from '../../services/activityLogger';
 import { useAppContext } from '../../AppContext';
@@ -61,7 +61,7 @@ const PrivilegeSettingsTab: React.FC = () => {
 
     const filteredPrivileges = useMemo(() => DEFINED_PRIVILEGES.filter(p => p.label.toLowerCase().includes(searchTerm.toLowerCase())), [searchTerm]);
 
-    if (loading) return <div className="p-20 text-center animate-pulse uppercase tracking-[0.3em] font-bold text-gray-500">Syncing Matrix...</div>;
+    if (loading) return <div className="p-20 text-center animate-pulse uppercase tracking-[0.3em] font-bold text-gray-500 dark:text-gray-400">Syncing Matrix...</div>;
 
     return (
         <div className="space-y-6 max-w-5xl mx-auto">
@@ -72,7 +72,7 @@ const PrivilegeSettingsTab: React.FC = () => {
                 </div>
                 <div className="relative w-full md:w-64">
                     <SearchIcon className="absolute w-4 h-4 text-gray-400 top-1/2 left-3 transform -translate-y-1/2" />
-                    <input type="text" placeholder="Search scope..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-base-300 rounded-xl bg-base-100 focus:ring-2 focus:ring-brand-primary outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white text-xs font-bold uppercase tracking-wider" />
+                    <input type="text" placeholder="Search scope..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-base-300 dark:border-white/10 rounded-xl bg-white dark:bg-[#090909] focus:ring-2 focus:ring-brand-primary outline-none text-black dark:text-white text-xs font-bold uppercase tracking-wider transition-all" />
                 </div>
             </div>
 
@@ -82,7 +82,7 @@ const PrivilegeSettingsTab: React.FC = () => {
                     const isSelected = selectedPrivilege?.id === privilege.id;
 
                     return (
-                        <div key={privilege.id} className={`bg-base-100 rounded-2xl shadow-sm border-l-[6px] transition-all duration-300 dark:bg-gray-800 ${isSelected ? 'border-brand-primary ring-2 ring-brand-primary/20' : 'border-base-300 dark:border-gray-700'}`}>
+                        <div key={privilege.id} className={`bg-base-100 dark:bg-[#111111] rounded-2xl shadow-sm border-l-[6px] transition-all duration-300 ${isSelected ? 'border-brand-primary ring-2 ring-brand-primary/20' : 'border-base-300 dark:border-white/10'}`}>
                             <div className="p-6">
                                 <div className="flex justify-between items-start">
                                     <div>
@@ -91,28 +91,28 @@ const PrivilegeSettingsTab: React.FC = () => {
                                         </h4>
                                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{privilege.description}</p>
                                     </div>
-                                    <button onClick={() => setSelectedPrivilege(isSelected ? null : privilege)} className={`px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${isSelected ? 'bg-base-200 text-gray-800 dark:bg-gray-700 dark:text-white border border-base-300 dark:border-gray-600' : 'bg-brand-primary text-white shadow-lg hover:brightness-110'}`}>
+                                    <button onClick={() => setSelectedPrivilege(isSelected ? null : privilege)} className={`px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${isSelected ? 'bg-base-200 text-gray-800 dark:bg-white/5 dark:text-white border border-base-300 dark:border-white/10' : 'bg-brand-primary text-white shadow-lg hover:brightness-110'}`}>
                                         {isSelected ? 'Lock Access' : 'Manage Access'}
                                     </button>
                                 </div>
                             </div>
 
                             {isSelected && (
-                                <div className="border-t border-base-200 dark:border-gray-700 bg-base-200/20 dark:bg-gray-700/30 p-6 animate-fadeIn">
+                                <div className="border-t border-base-200 dark:border-white/5 bg-base-200/20 dark:bg-white/5 p-6 animate-fadeIn">
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                         {users.map(user => {
                                             const isAdmin = user.role === UserRole.Admin;
                                             const hasAccess = isAdmin || (user.privileges && user.privileges.includes(privilege.id));
                                             return (
-                                                <div key={user.id} className={`flex items-center justify-between p-3 rounded-xl border ${hasAccess ? 'bg-white dark:bg-gray-800 border-green-200 dark:border-green-900/50' : 'bg-white dark:bg-gray-800 border-base-300 dark:border-gray-700'}`}>
+                                                <div key={user.id} className={`flex items-center justify-between p-3 rounded-xl border ${hasAccess ? 'bg-white dark:bg-[#1a1a1a] border-green-200 dark:border-green-900/50' : 'bg-white dark:bg-[#1a1a1a] border-base-300 dark:border-white/10'}`}>
                                                     <div className="flex items-center gap-3">
                                                         <Avatar name={user.name} size="sm" />
                                                         <div>
                                                             <p className="text-xs font-bold text-gray-900 dark:text-gray-100">{user.name}</p>
-                                                            <p className="text-[10px] text-gray-500 uppercase tracking-tighter">{user.role}</p>
+                                                            <p className="text-[10px] text-gray-500 dark:text-gray-500 uppercase tracking-tighter">{user.role}</p>
                                                         </div>
                                                     </div>
-                                                    {isAdmin ? <span className="text-[9px] font-bold text-gray-400 bg-base-100 px-2 py-1 rounded-lg border border-base-200 uppercase">Super</span> : (
+                                                    {isAdmin ? <span className="text-[9px] font-bold text-gray-400 dark:text-gray-600 bg-base-100 dark:bg-black px-2 py-1 rounded-lg border border-base-200 dark:border-white/5 uppercase">Super</span> : (
                                                         <button onClick={() => toggleUserPrivilege(user, privilege.id)} className={`p-2 rounded-full transition-all ${hasAccess ? 'text-green-600 bg-green-50 dark:bg-green-900/20' : 'text-gray-300 hover:text-brand-primary hover:bg-brand-primary/5'}`}>
                                                             {hasAccess ? <CheckCircleIcon className="w-5 h-5" /> : <XCircleIcon className="w-5 h-5" />}
                                                         </button>
