@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { FinanceIcon } from '../IconComponents';
 
@@ -14,12 +15,14 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ title, amou
   };
 
   return (
-    <div className="bg-base-100 p-6 rounded-xl shadow-md flex items-center justify-between transition-transform transform hover:scale-105 dark:bg-gray-800">
+    <div className="bg-base-100 p-6 rounded-2xl shadow-sm flex items-center justify-between transition-all transform hover:scale-[1.02] dark:bg-gray-800 border border-base-300 dark:border-gray-700">
       <div>
-        <p className="text-sm font-medium text-base-content-secondary uppercase tracking-wider dark:text-gray-400">{title}</p>
-        <p className="text-3xl font-bold text-base-content mt-1 dark:text-white">{formatCurrency(amount)}</p>
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">{title}</p>
+        <p className={`text-3xl font-bold ${color.includes('tertiary') ? 'text-brand-tertiary' : 'text-base-content dark:text-white'} transition-colors`}>
+          {formatCurrency(amount)}
+        </p>
       </div>
-      <div className={`p-3 rounded-full ${bgColor} dark:bg-opacity-20`}>
+      <div className={`p-3 rounded-xl ${bgColor} transition-colors`}>
         <div className={color}>
           <FinanceIcon className="w-8 h-8"/>
         </div>

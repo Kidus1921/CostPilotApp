@@ -4,11 +4,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CostPilot - Project Management</title>
+    <title>EDFM - Project & Financial Management</title>
     <link rel="manifest" href="/manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      // Polyfill process.env for client-side libraries to prevent crashes
       window.process = { env: { NODE_ENV: 'development' } };
     </script>
     <style>
@@ -26,21 +25,25 @@
       }
 
       :root {
-        /* Light Mode: Primary = Deep Red (#65081b), Secondary = Gold (#f3c613) */
-        --color-brand-primary: 101 8 27;
-        --color-brand-primary-content: 255 255 255; /* White text on Deep Red */
-        --color-brand-secondary: 243 198 19;
+        --color-brand-primary: 211 162 0;    /* #d3a200 - Brownish Yellow */
+        --color-brand-secondary: 249 220 92; /* #f9dc5c - Secondary */
+        --color-brand-tertiary: 196 16 52;   /* #c41034 - Tertiary Red */
+        --color-brand-dark: 101 8 27;       /* #65081b - Dark Red */
+        --color-brand-primary-content: 255 255 255;
       }
+      
       .dark {
-        /* Dark Mode: Primary = Gold (#f3c613) for visibility, Secondary = Deep Red (#65081b) */
-        --color-brand-primary: 243 198 19;
-        /* Requirement: "if the backgraound is #f3c613 use #65081b as a text color" */
-        --color-brand-primary-content: 101 8 27; /* Deep Red text on Gold */
-        --color-brand-secondary: 101 8 27;
+        --color-brand-primary: 249 220 92;
+        --color-brand-primary-content: 101 8 27;
       }
 
       body {
-        font-family: 'Nokia Pure Headline', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        font-family: 'Nokia Pure Headline', ui-sans-serif, system-ui, sans-serif;
+        color: #000000;
+      }
+      
+      .sidebar-transition {
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
     </style>
     <script>
@@ -54,33 +57,35 @@
             colors: {
               'brand-primary': 'rgb(var(--color-brand-primary) / <alpha-value>)', 
               'brand-primary-content': 'rgb(var(--color-brand-primary-content) / <alpha-value>)',
-              'brand-secondary': 'rgb(var(--color-brand-secondary) / <alpha-value>)', 
+              'brand-secondary': 'rgb(var(--color-brand-secondary) / <alpha-value>)',
+              'brand-tertiary': 'rgb(var(--color-brand-tertiary) / <alpha-value>)',
+              'brand-dark': 'rgb(var(--color-brand-dark) / <alpha-value>)',
               'base-100': '#FFFFFF',
-              'base-200': '#F3F4F6',
+              'base-200': '#F9F9F9',
               'base-300': '#E5E7EB',
-              'base-content': '#1F2937',
-              'base-content-secondary': '#6B7280',
+              'base-content': '#000000',
+              'base-content-secondary': '#1a1a1a',
             }
           }
         }
       }
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script type="importmap">
-{
-  "imports": {
-    "recharts": "https://aistudiocdn.com/recharts@^3.4.1",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.45.0",
-    "jspdf": "https://aistudiocdn.com/jspdf@^3.0.3",
-    "html2canvas": "https://aistudiocdn.com/html2canvas@^1.4.1"
-  }
-}
-</script>
-</head>
-  <body class="bg-base-200 dark:bg-gray-900 antialiased">
+    <script type="importmap">
+    {
+      "imports": {
+        "recharts": "https://aistudiocdn.com/recharts@^3.4.1",
+        "react/": "https://aistudiocdn.com/react@^19.2.0/",
+        "react": "https://aistudiocdn.com/react@^19.2.0",
+        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+        "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.45.0",
+        "jspdf": "https://aistudiocdn.com/jspdf@^3.0.3",
+        "html2canvas": "https://aistudiocdn.com/html2canvas@^1.4.1"
+      }
+    }
+    </script>
+  </head>
+  <body class="bg-base-200 dark:bg-gray-900 text-black dark:text-gray-100 antialiased overflow-hidden">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

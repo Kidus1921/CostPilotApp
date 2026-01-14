@@ -15,16 +15,17 @@ const ProjectStatusChart: React.FC<ProjectStatusChartProps> = ({ projects }) => 
 
   const data = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
 
+  // Strict Brand Color Mapping
   const COLORS: { [key in ProjectStatus]?: string } = {
-    [ProjectStatus.InProgress]: '#3B82F6', // blue-500
-    [ProjectStatus.Completed]: '#10B981', // green-500
-    [ProjectStatus.OnHold]: '#F97316', // orange-500
-    [ProjectStatus.Pending]: '#6B7280', // gray-500
-    [ProjectStatus.Rejected]: '#EF4444', // red-500
+    [ProjectStatus.InProgress]: '#d3a200', // brand-primary
+    [ProjectStatus.Completed]: '#10B981',  // green-500 (industry standard for success)
+    [ProjectStatus.OnHold]: '#f9dc5c',     // brand-secondary
+    [ProjectStatus.Pending]: '#6B7280',    // gray-500
+    [ProjectStatus.Rejected]: '#c41034',   // brand-tertiary red
   };
 
   return (
-    <div className="bg-base-100 p-6 rounded-xl shadow-md dark:bg-gray-800">
+    <div className="bg-base-100 p-6 rounded-xl shadow-md dark:bg-gray-800 border border-base-300 dark:border-gray-700">
       <h3 className="text-lg font-bold text-base-content dark:text-white">Project Status Distribution</h3>
       <div style={{ width: '100%', height: 300 }} className="mt-4">
         <ResponsiveContainer>
@@ -54,7 +55,7 @@ const ProjectStatusChart: React.FC<ProjectStatusChartProps> = ({ projects }) => 
                 }}
                 wrapperClassName="dark:[&_.recharts-tooltip-item]:!text-white dark:[&_.recharts-tooltip-label]:!text-white dark:!bg-gray-700/80 dark:!border-gray-600"
             />
-            <Legend iconType="circle" wrapperStyle={{color: '#FFFFFF'}} />
+            <Legend iconType="circle" />
           </PieChart>
         </ResponsiveContainer>
       </div>

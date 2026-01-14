@@ -28,9 +28,24 @@ const Dashboard: React.FC<{setActivePage: (page: string) => void}> = ({setActive
             <h2 className="text-3xl font-bold text-base-content dark:text-gray-100">Dashboard</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <ProjectOverviewCard title="Total Projects" value={totalProjects} icon={<FolderIcon className="w-8 h-8"/>} color="text-blue-500" />
-                <ProjectOverviewCard title="In Progress" value={inProgressProjects} icon={<ClockIcon className="w-8 h-8"/>} color="text-yellow-500" />
-                <ProjectOverviewCard title="Completed" value={completedProjects} icon={<CheckCircleIcon className="w-8 h-8"/>} color="text-green-500" />
+                <ProjectOverviewCard 
+                    title="Total Projects" 
+                    value={totalProjects} 
+                    icon={<FolderIcon className="w-8 h-8"/>} 
+                    color="text-brand-primary" 
+                />
+                <ProjectOverviewCard 
+                    title="In Progress" 
+                    value={inProgressProjects} 
+                    icon={<ClockIcon className="w-8 h-8"/>} 
+                    color="text-brand-primary" 
+                />
+                <ProjectOverviewCard 
+                    title="Completed" 
+                    value={completedProjects} 
+                    icon={<CheckCircleIcon className="w-8 h-8"/>} 
+                    color="text-green-500" 
+                />
                 <FinancialSummaryCard totalBudget={totalBudget} totalSpent={totalSpent} />
             </div>
             

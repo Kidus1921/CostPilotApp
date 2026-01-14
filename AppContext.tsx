@@ -120,29 +120,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     useEffect(() => {
         let mounted = true;
-        const timeoutId = setTimeout(() => {
-            if (mounted) {
-                setLoading((currentLoading) => {
-                    if (currentLoading) return false;
-                    return currentLoading;
-                });
-            }
-        }, 5000);
 
         const initAuth = async () => {
             try {
+                // Set a safety timeout for the loading state
+                const safetyTimeout = setTimeout(() => {
+                    if (mounted) setLoading(false);
+                }, 8000);
+
                 const { data: { session }, error } = await supabase.auth.getSession();
-                if (error) console.error("Session Check Error:", error);
+                if (error) {
+                    console.error("Session Check Error:", error);
+                    if (mounted) setLoading(false);
+                    clearTimeout(safetyTimeout);
+                    return;
+                }
+
                 if (session?.user && mounted) {
                     await fetchUserProfile(session.user.id);
                 } else if (mounted) {
                     setLoading(false);
                 }
+                clearTimeout(safetyTimeout);
             } catch (e) {
                 console.error("Auth Init Error:", e);
                 if (mounted) setLoading(false);
-            } finally {
-                clearTimeout(timeoutId);
             }
         };
 
@@ -150,8 +152,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (event === 'SIGNED_IN' && session?.user) {
+                setLoading(true);
                 await fetchUserProfile(session.user.id);
-            } else if (event === 'SIGNED_OUT') {
+            } else if (event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
                 if (mounted) {
                     setCurrentUser(null);
                     setProjects([]);
@@ -165,7 +168,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         return () => {
             mounted = false;
-            clearTimeout(timeoutId);
             authListener.subscription.unsubscribe();
         };
     }, []);
@@ -187,55 +189,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [currentUser, refreshData]);
 
     const logout = async () => {
-        console.log("Terminating all sessions and clearing local data...");
-        
+        setLoading(true);
         try {
             await unsubscribeFromSendPulse();
-        } catch (e) {
-            console.error("Error unsubscribing from push:", e);
-        }
+        } catch (e) {}
 
         try {
-            // Terminate all sessions globally
             await supabase.auth.signOut({ scope: 'global' });
         } catch (e) {
-             console.error("Error signing out from Supabase:", e);
+             console.error("Error signing out:", e);
         }
         
-        // Clear caches and storage
-        localStorage.clear();
-        sessionStorage.clear();
+        // Clear non-critical local storage but keep session logic clean
+        localStorage.removeItem('supabase.auth.token');
         
-        if ('caches' in window) {
-            try {
-                const keys = await caches.keys();
-                await Promise.all(keys.map(key => caches.delete(key)));
-            } catch (e) {
-                console.error("Error clearing Cache Storage:", e);
-            }
-        }
-
-        // Added a defensive check for serviceWorker to avoid "invalid state" errors
-        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-             try {
-                const registrations = await navigator.serviceWorker.getRegistrations();
-                for (const registration of registrations) {
-                    await registration.unregister();
-                }
-            } catch (e: any) {
-                // If document state becomes invalid during unregistration (e.g. fast redirect/refresh), ignore it
-                if (!e.message?.includes('invalid state')) {
-                    console.error("Error unregistering Service Workers:", e);
-                }
-            }
-        }
-
-        // Update local state. The App component will notice currentUser is null and show the Login page.
         setCurrentUser(null);
         setProjects([]);
         setUsers([]);
         setTeams([]);
         setNotifications([]);
+        setLoading(false);
     };
 
     const checkPermission = (permissionId: string): boolean => {
