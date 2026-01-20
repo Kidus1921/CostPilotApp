@@ -8,8 +8,18 @@ import FinancialTeamsTab from './FinancialTeamsTab';
 
 type Tab = 'Overview' | 'Projects' | 'Approvals' | 'Reports' | 'Team Status';
 
-const FinancialsPage: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<Tab>('Overview');
+interface FinancialsPageProps {
+    initialSubTab?: string;
+}
+
+const FinancialsPage: React.FC<FinancialsPageProps> = ({ initialSubTab }) => {
+    const [activeTab, setActiveTab] = useState<Tab>((initialSubTab as Tab) || 'Overview');
+
+    useEffect(() => {
+        if (initialSubTab) {
+            setActiveTab(initialSubTab as Tab);
+        }
+    }, [initialSubTab]);
 
     const renderTabContent = () => {
         switch (activeTab) {

@@ -5,7 +5,6 @@ import React, {
   useState,
   useEffect,
   useCallback,
-  useRef,
 } from 'react';
 import { supabase } from './supabaseClient';
 import {
@@ -16,12 +15,6 @@ import {
   UserRole,
   UserStatus,
 } from './types';
-import {
-  initSendPulse,
-  syncPushSubscription,
-  unsubscribeFromSendPulse,
-} from './services/sendPulseService';
-import { runSystemHealthChecks } from './services/notificationService';
 
 interface AppContextType {
   currentUser: User | null;
@@ -36,6 +29,8 @@ interface AppContextType {
   logout: () => Promise<void>;
   isAdmin: boolean;
   checkPermission: (permissionId: string) => boolean;
+  // Added setActivePage to context to fix navigation issues in nested components
+  setActivePage: (page: string, subTab?: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -49,12 +44,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const [teams, setTeams] = useState<Team[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   
-  // loading: True when specifically fetching user-data/profile or performing actions
   const [loading, setLoading] = useState(false);
-  // authChecked: True only after Supabase confirms the initial session status
   const [authChecked, setAuthChecked] = useState(false);
+  
+  // Track active page in context
+  const [activePage, setActivePageState] = useState('Dashboard');
+  const [activeSubTab, setActiveSubTab] = useState('');
 
   const isAdmin = currentUser?.role === UserRole.Admin;
+
+  const setActivePage = (page: string, subTab?: string) => {
+    setActivePageState(page);
+    setActiveSubTab(subTab || '');
+    // Dispatch a custom event to notify listeners (MainLayout) of page change
+    window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page, subTab } }));
+  };
 
   const processProjects = (data: any[]): Project[] =>
     data.map((p) => {
@@ -119,9 +123,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       setCurrentUser(user);
-      initSendPulse(userId);
-      syncPushSubscription(userId);
-      runSystemHealthChecks();
     } catch (err) {
       console.error('Profile fetch error:', err);
     }
@@ -130,16 +131,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     let mounted = true;
 
-    // Use a single point of truth for auth initialization
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
 
-        console.log('Auth Transition Event:', event);
-
         try {
           if (session?.user) {
-            // Only fetch if we don't have this user or just logged in
             if (!currentUser || currentUser.id !== session.user.id) {
                 setLoading(true);
                 await fetchUserProfile(session.user.id);
@@ -220,7 +217,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const logout = async () => {
     setLoading(true);
     try {
-      await unsubscribeFromSendPulse();
       await supabase.auth.signOut();
     } finally {
       setCurrentUser(null);
@@ -253,6 +249,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         logout,
         isAdmin,
         checkPermission,
+        setActivePage,
       }}
     >
       {children}

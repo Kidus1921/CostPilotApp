@@ -212,9 +212,14 @@ const Sidebar: React.FC<SidebarProps> = ({
             bg-black border-b border-white/10 flex-shrink-0
           ">
             <div className="flex items-center gap-2">
-              <FolderIcon className="w-7 h-7 text-[var(--primary-color)]" />
+              <img
+                  src="/logo.png"
+                  alt="EDFM Logo"
+                  className="w-7 h-7 object-contain"
+              />
               <span className="font-bold text-lg text-white">EDFM</span>
             </div>
+
             <button 
               onClick={() => setMobileMenuOpen?.(false)}
               className="p-2 hover:bg-white/10 rounded-full transition-colors"

@@ -39,10 +39,10 @@ const ProfileSettingsTab: React.FC<ProfileSettingsTabProps> = ({ currentUser, on
 
     return (
         <div className="max-w-3xl mx-auto bg-base-100 dark:bg-[#111111] p-8 rounded-2xl shadow-sm border border-base-300 dark:border-white/10">
-            <h3 className="text-xl font-bold text-base-content dark:text-white mb-8 uppercase tracking-widest">My Digital Profile</h3>
+            <h3 className="text-xl font-bold text-base-content dark:text-white mb-8 uppercase tracking-widest">My Profile</h3>
             
             <div className="flex flex-col sm:flex-row items-center gap-8 mb-10">
-                <Avatar name={name} size="lg" className="w-24 h-24 text-3xl ring-4 ring-brand-primary/10" />
+                <Avatar name={name} size="lg" className="w-24 h-24 text-3xl ring-4 ring-brand-primary/20 dark:ring-brand-primary/30" />
                 <div className="text-center sm:text-left">
                     <h4 className="text-2xl font-bold text-gray-900 dark:text-white">{name}</h4>
                     <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">{currentUser.email}</p>

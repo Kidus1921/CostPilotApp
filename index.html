@@ -40,10 +40,45 @@
       body {
         font-family: 'Nokia Pure Headline', ui-sans-serif, system-ui, sans-serif;
         color: #000000;
+        margin: 0;
       }
       
       .sidebar-transition {
         transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .animate-fadeIn {
+        animation: fadeIn 0.3s ease-out forwards;
+      }
+
+      /* Custom scrollbar for Dark Mode surfaces */
+      .dark .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .dark .custom-scrollbar::-webkit-scrollbar-track {
+        background: #0b0b0b;
+      }
+      .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 10px;
+      }
+
+      /* Notification Dismissal Transition Helper */
+      .notification-item-dismiss {
+        max-height: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        margin-top: 0;
+        margin-bottom: 0;
+        overflow: hidden;
+        opacity: 0;
+        transform: translateX(100%);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
     </style>
     <script>
@@ -85,7 +120,7 @@
     }
     </script>
   </head>
-  <body class="bg-base-200 dark:bg-gray-900 text-black dark:text-gray-100 antialiased overflow-hidden">
+  <body class="bg-base-200 dark:bg-[#0b0b0b] text-black dark:text-gray-100 antialiased overflow-hidden">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
