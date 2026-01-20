@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Project, ProjectStatus } from '../types';
@@ -17,11 +16,11 @@ const ProjectStatusChart: React.FC<ProjectStatusChartProps> = ({ projects }) => 
 
   // Strict Brand Color Mapping
   const COLORS: { [key in ProjectStatus]?: string } = {
-    [ProjectStatus.InProgress]: '#d3a200', // brand-primary
-    [ProjectStatus.Completed]: '#10B981',  // green-500 (industry standard for success)
-    [ProjectStatus.OnHold]: '#f9dc5c',     // brand-secondary
-    [ProjectStatus.Pending]: '#6B7280',    // gray-500
-    [ProjectStatus.Rejected]: '#c41034',   // brand-tertiary red
+    [ProjectStatus.InProgress]: '#d3a200', // Gold (secondary)
+    [ProjectStatus.Completed]: '#10B981',  // Success Green
+    [ProjectStatus.OnHold]: '#f9dc5c',     // Light Gold (other)
+    [ProjectStatus.Pending]: '#6B7280',    // Gray
+    [ProjectStatus.Rejected]: '#c41034',   // Crimson (tertiary)
   };
 
   return (

@@ -1,12 +1,11 @@
-
 import React from 'react';
 
 // Strict Brand Color Palette for Avatars
 const BRAND_COLORS = [
-  'bg-[#d3a200]', // brand-primary
-  'bg-[#f9dc5c]', // brand-secondary
-  'bg-[#c41034]', // brand-tertiary
-  'bg-[#65081b]', // brand-dark
+  'bg-[#65081b]', // brand-primary (Deep Wine)
+  'bg-[#d3a200]', // brand-secondary (Gold)
+  'bg-[#c41034]', // brand-tertiary (Crimson)
+  'bg-[#f9dc5c]', // brand-other (Light Gold)
 ];
 
 const getColor = (name: string) => {
@@ -29,8 +28,9 @@ const Avatar: React.FC<AvatarProps> = ({ name, size = 'md', className = '' }) =>
   const initial = name ? name.charAt(0).toUpperCase() : '?';
   const colorClass = getColor(name);
   
-  // Contrast logic: brand-secondary is light, so use dark text. Others use white.
-  const textClass = colorClass === 'bg-[#f9dc5c]' ? 'text-black' : 'text-white';
+  // Contrast logic: secondary/other (gold variants) are light, so use dark text. Others use white.
+  const isLight = colorClass === 'bg-[#d3a200]' || colorClass === 'bg-[#f9dc5c]';
+  const textClass = isLight ? 'text-black' : 'text-white';
 
   const sizeClasses = {
     sm: 'w-8 h-8 text-[10px]',

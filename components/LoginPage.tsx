@@ -54,9 +54,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup }) => {
         <div className="flex min-h-screen items-center justify-center bg-base-200 py-12 px-4 sm:px-6 lg:px-8 dark:bg-gray-900 font-sans">
             <div className="w-full max-w-md space-y-8 p-10 bg-base-100 dark:bg-gray-800 shadow-xl rounded-2xl">
                 <div>
-                    <div className="flex items-center justify-center">
-                        <FolderIcon className="w-12 h-12 text-brand-primary" />
-                        <h1 className="text-4xl font-bold ml-2 text-base-content dark:text-gray-100 tracking-tight">EDFM</h1>
+                    <div className="flex flex-col items-center justify-center">
+                        <FolderIcon className="w-20 h-20 text-brand-primary mb-4" />
+                        <h1 className="text-4xl font-bold text-base-content dark:text-gray-100 tracking-tight uppercase">EDFM</h1>
                     </div>
                     <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
                         {isSignup ? 'Create an Account' : 'Welcome Back'}
@@ -138,7 +138,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup }) => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="group relative flex w-full justify-center rounded-md border border-transparent bg-brand-primary py-3 px-4 text-sm font-bold text-brand-primary-content hover:bg-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2 disabled:bg-opacity-50 dark:focus:ring-offset-gray-800 transition-all shadow-lg"
+                            className="group relative flex w-full justify-center rounded-md border border-transparent bg-[#65081b] py-3 px-4 text-sm font-bold text-white hover:bg-[#d3a200] focus:outline-none focus:ring-2 focus:ring-[#d3a200] focus:ring-offset-2 disabled:bg-opacity-50 dark:focus:ring-offset-gray-800 transition-all shadow-lg"
                         >
                             {loading ? (isSignup ? 'Creating Account...' : 'Signing in...') : (isSignup ? 'Sign Up' : 'Sign in')}
                         </button>

@@ -5,10 +5,10 @@ import {
   ProjectsIcon,
   FinanceIcon,
   SettingsIcon,
-  FolderIcon,
   BellIcon,
   ArrowLeftIcon,
   XIcon,
+  FolderIcon,
 } from "./IconComponents";
 import { UserRole } from "../types";
 import { useAppContext } from "../AppContext";
@@ -18,20 +18,20 @@ import { useAppContext } from "../AppContext";
 ========================================================= */
 const style = `
 :root {
-  --primary-color: #d3a200;
-  --secondary-color: #f9dc5c;
-  --tertiary-color: #c41034;
-  --dark-red: #65081b;
+  --primary-color: #65081b;      /* Deep wine */
+  --secondary-color: #d3a200;    /* Gold */
+  --tertiary-color: #c41034;     /* Crimson */
+  --highlight-color: #f9dc5c;    /* Light Gold */
 
   --neutral-white: #ffffff;
   --neutral-black: #000000;
 
-  --bg-main: #0b0b0b;
-  --bg-surface: #111111;
-  --bg-elevated: #1a1a1a;
+  --bg-main: #65081b;
+  --bg-surface: #65081b;
+  --bg-elevated: #c41034;
 
   --text-primary: #ffffff;
-  --text-muted: #b5b5b5;
+  --text-muted: #e5e7eb;
 }
 
 /* Prevent body scrolling when mobile menu is open */
@@ -71,8 +71,8 @@ const NavItem: React.FC<NavItemProps> = ({
       }
       ${active
         ? mobile
-          ? "text-[var(--primary-color)]"
-          : "bg-[var(--primary-color)] text-black shadow-lg"
+          ? "text-[var(--secondary-color)]"
+          : "bg-[var(--secondary-color)] text-black shadow-lg"
         : "text-[var(--text-muted)] hover:text-white hover:bg-white/5"
       }
     `}
@@ -151,7 +151,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const mobileMain = navItems.slice(0, 4);
 
-  // Handle body lock to prevent underlying content scroll
   React.useEffect(() => {
     if (isMobileMenuOpen) {
       document.body.classList.add('mobile-menu-open');
@@ -191,7 +190,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           ${isMobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"}
         `}
       >
-        {/* Backdrop - Locked */}
         <div 
           className="absolute inset-0 bg-black/70 backdrop-blur-sm"
           onClick={() => setMobileMenuOpen?.(false)}
@@ -212,11 +210,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             bg-black border-b border-white/10 flex-shrink-0
           ">
             <div className="flex items-center gap-2">
-              <img
-                  src="/logo.png"
-                  alt="EDFM Logo"
-                  className="w-7 h-7 object-contain"
-              />
+              <FolderIcon className="w-8 h-8 text-[#d3a200]" />
               <span className="font-bold text-lg text-white">EDFM</span>
             </div>
 
@@ -244,7 +238,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             ))}
           </nav>
           
-          <div className="p-4 border-t border-white/10 bg-black/40 text-[10px] text-center text-gray-500 uppercase tracking-widest">
+          <div className="p-4 border-t border-white/10 bg-black/40 text-[10px] text-center text-gray-400 uppercase tracking-widest">
             Unified Platform
           </div>
         </div>
@@ -263,9 +257,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           h-20 flex items-center border-b border-white/10 bg-black
         ">
           <div className={`flex items-center transition-all ${isCollapsed ? "mx-auto" : "ml-4"}`}>
-            <FolderIcon className="w-8 h-8 text-[var(--primary-color)]" />
+            <FolderIcon className="w-10 h-10 text-[#d3a200]" />
             {!isCollapsed && (
-              <span className="ml-2 text-xl font-bold text-white">EDFM</span>
+              <span className="ml-2 text-xl font-bold text-white uppercase tracking-tighter">EDFM</span>
             )}
           </div>
         </div>

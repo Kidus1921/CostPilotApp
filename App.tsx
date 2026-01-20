@@ -109,15 +109,15 @@ const MainLayout: React.FC = () => {
     };
 
     if (!authChecked || (loading && !currentUser)) return (
-        <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#0b0b0b] font-sans">
+        <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#65081b] font-sans">
             <div className="relative w-16 h-16 mb-6">
-                <div className="absolute inset-0 rounded-full border-4 border-brand-primary/10"></div>
-                <div className="absolute inset-0 rounded-full border-4 border-t-brand-primary animate-spin"></div>
-                <div className="absolute inset-2 rounded-full border-4 border-b-brand-secondary/40 animate-[spin_2s_linear_infinite_reverse]"></div>
+                <div className="absolute inset-0 rounded-full border-4 border-white/10"></div>
+                <div className="absolute inset-0 rounded-full border-4 border-t-[#d3a200] animate-spin"></div>
+                <div className="absolute inset-2 rounded-full border-4 border-b-white/20 animate-[spin_2s_linear_infinite_reverse]"></div>
             </div>
             <div className="text-center">
                 <h1 className="text-xl font-bold text-white tracking-[0.3em] uppercase mb-1">EDFM</h1>
-                <p className="text-gray-500 text-[10px] tracking-widest uppercase animate-pulse">System Loading</p>
+                <p className="text-white/60 text-[10px] tracking-widest uppercase animate-pulse">System Loading</p>
             </div>
         </div>
     );
