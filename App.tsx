@@ -4,7 +4,7 @@ import { AppProvider, useAppContext } from './AppContext';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
-import ProjectsPage from './components/ProjectsPage';
+import ProjectsPage from './components/projects/ProjectsPage';
 import SettingsPage from './components/SettingsPage';
 import FinancialsPage from './components/financials/FinancialsPage';
 import NotificationsPage from './components/notifications/NotificationsPage';
@@ -20,10 +20,8 @@ const MainLayout: React.FC = () => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('theme') as 'light' | 'dark') || 'light');
     
-    // Ref to ensure health checks only run once per session/login
     const hasSyncedRef = useRef(false);
 
-    // Listener for navigation events triggered from AppContext
     useEffect(() => {
         const handleNavigate = (e: any) => {
             const { page, subTab } = e.detail;
@@ -34,14 +32,12 @@ const MainLayout: React.FC = () => {
         return () => window.removeEventListener('app:navigate', handleNavigate);
     }, []);
 
-    // Post-Login Health Check Sync
     useEffect(() => {
         if (authChecked && currentUser && !hasSyncedRef.current) {
             console.log("[System] Initializing operational health sync...");
             runSystemHealthChecks();
             hasSyncedRef.current = true;
         }
-        // Reset sync flag if user logs out
         if (!currentUser) {
             hasSyncedRef.current = false;
         }
@@ -103,7 +99,6 @@ const MainLayout: React.FC = () => {
 
     const handleSetPage = (page: string, tab?: string) => {
         if (currentUser && hasAccess(page, currentUser.role)) {
-            // Update context so other components are aware
             setContextPage(page, tab);
         }
     };

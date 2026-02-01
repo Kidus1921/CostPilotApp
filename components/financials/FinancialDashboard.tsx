@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Project, ProjectStatus, TaskStatus } from '../../types';
-import ProjectOverviewCard from '../ProjectOverviewCard';
+import ProjectOverviewCard from '../projects/ProjectOverviewCard';
 import { FolderIcon, CheckCircleIcon, ClockIcon } from '../IconComponents';
 import FinancialSummaryCard from './FinancialSummaryCard';
 

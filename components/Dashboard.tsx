@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { ProjectStatus } from '../types';
 import { useAppContext } from '../AppContext';
-import ProjectOverviewCard from './ProjectOverviewCard';
+import ProjectOverviewCard from './projects/ProjectOverviewCard';
 import FinancialSummaryCard from './FinancialSummaryCard';
 import UpcomingDeadlines from './UpcomingDeadlines';
 import ProjectStatusChart from './ProjectStatusChart';
