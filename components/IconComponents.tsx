@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export const DashboardIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
@@ -34,7 +33,11 @@ export const SearchIcon: React.FC<{ className?: string }> = ({ className = "w-6 
 );
 
 export const FolderIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+  <img 
+    src="https://vgubtzdnimaguwaqzlpa.supabase.co/storage/v1/object/sign/assets/logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yY2Q0MmM3Yi04YzY0LTQzYzItYTA3OC00YzgzNDMyYzIwYWEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvbG9nby5wbmciLCJpYXQiOjE3NzAwNDgwMjQsImV4cCI6ODY1NzY5OTYxNjI0fQ.xAL26M1UaUbJMK5wdZNBbUdR58vPihBK2hovd7rlg38" 
+    alt="EDFM Logo" 
+    className={`${className} object-contain`} 
+  />
 );
 
 export const ClockIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
