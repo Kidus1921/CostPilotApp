@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { FolderIcon } from './IconComponents';
+import logo from '../images/logo.png';
 
 interface LoginPageProps {
     onLogin: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
@@ -9,11 +9,11 @@ interface LoginPageProps {
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup }) => {
     const [isSignup, setIsSignup] = useState(false);
-    const [email, setEmail] = useState(''); 
-    const [password, setPassword] = useState(''); 
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [name, setName] = useState('');
-    
+
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
@@ -55,20 +55,20 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup }) => {
             <div className="w-full max-w-md space-y-8 p-10 bg-base-100 dark:bg-gray-800 shadow-xl rounded-2xl">
                 <div>
                     <div className="flex flex-col items-center justify-center">
-                        <FolderIcon className="w-20 h-20 text-brand-primary mb-4" />
+                        <img src={logo} alt="EDFM Logo" className="w-20 h-20 object-contain mb-4" />
                         <h1 className="text-4xl font-bold text-base-content dark:text-gray-100 tracking-tight uppercase">EDFM</h1>
                     </div>
                     <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
                         {isSignup ? 'Create an Account' : 'Welcome Back'}
                     </h2>
-                     <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+                    <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
                         {isSignup ? 'Join EDFM to manage your projects' : 'Sign in to continue to your dashboard'}
                     </p>
                 </div>
                 <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
                     <div className="space-y-4">
                         {isSignup && (
-                             <div>
+                            <div>
                                 <label htmlFor="name" className="sr-only">Full Name</label>
                                 <input
                                     id="name"
@@ -111,7 +111,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup }) => {
                             />
                         </div>
                         {isSignup && (
-                             <div>
+                            <div>
                                 <label htmlFor="confirmPassword" className="sr-only">Confirm Password</label>
                                 <input
                                     id="confirmPassword"
@@ -144,11 +144,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup }) => {
                         </button>
                     </div>
                 </form>
-                
+
                 <div className="text-center mt-4">
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                         {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
-                        <button 
+                        <button
                             onClick={() => { setIsSignup(!isSignup); setError(''); setSuccessMsg(''); }}
                             className="font-bold text-brand-primary hover:text-brand-dark dark:text-brand-primary dark:hover:text-brand-secondary transition-colors"
                         >
