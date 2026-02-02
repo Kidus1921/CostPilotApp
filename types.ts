@@ -103,6 +103,9 @@ export interface Project {
   description: string;
   startDate: string;
   endDate: string;
+  acceptedAt?: string;
+  holdAt?: string;
+  completedAt?: string;
   teamLeader: User;
   team: User[];
   tags?: string[];

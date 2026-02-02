@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Project } from '../types';
 import { ClockIcon } from './IconComponents';
@@ -29,7 +28,7 @@ const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({ projects }) => {
     .slice(0, 5);
 
   return (
-    <div className="bg-base-100 p-6 rounded-xl shadow-md h-full dark:bg-gray-800 border border-base-300 dark:border-gray-700">
+    <div className="bg-base-100 p-6 rounded-xl shadow-md h-full dark:bg-[#111111] border border-base-300 dark:border-white/10">
       <h3 className="text-lg font-bold text-base-content flex items-center dark:text-white">
         <ClockIcon className="w-6 h-6 mr-2 text-brand-primary"/>
         Upcoming Deadlines

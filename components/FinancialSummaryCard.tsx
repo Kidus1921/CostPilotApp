@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 import { FinanceIcon } from './IconComponents';
 
@@ -23,7 +21,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({ totalBudget
   }
 
   return (
-    <div className="bg-base-100 p-6 rounded-xl shadow-md transition-transform transform hover:scale-105 dark:bg-gray-800">
+    <div className="bg-base-100 p-6 rounded-xl shadow-md transition-transform transform hover:scale-105 dark:bg-[#111111] border border-base-300 dark:border-white/10">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-base-content-secondary uppercase tracking-wider dark:text-gray-400">Financial Summary</p>
         <div className="p-3 rounded-full bg-brand-secondary bg-opacity-20">

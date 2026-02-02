@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Project, Task, ProjectStatus, ExpenseCategory, TaskStatus } from '../../types';
@@ -10,7 +9,7 @@ const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', { styl
 const formatDate = (date: Date) => date.toISOString().split('T')[0];
 
 const KpiCard: React.FC<{ title: string; value: string; subtext?: string; colorClass?: string; bgClass?: string }> = ({ title, value, subtext, colorClass = 'text-brand-primary', bgClass = 'bg-base-100' }) => (
-    <div className={`${bgClass} dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-base-300 dark:border-gray-700`}>
+    <div className={`${bgClass} dark:bg-[#111111] p-6 rounded-xl shadow-sm border border-base-300 dark:border-white/10`}>
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-1">{title}</p>
         <p className={`text-2xl font-bold ${colorClass} truncate`}>{value}</p>
         {subtext && <p className="text-[9px] font-bold text-gray-500 uppercase mt-1 tracking-wider">{subtext}</p>}
@@ -202,7 +201,7 @@ const FinancialReportsTab: React.FC = () => {
                 </div>
             </div>
 
-            <div className="bg-base-100 p-5 rounded-2xl shadow-sm border border-base-300 dark:bg-gray-800 dark:border-gray-700">
+            <div className="bg-base-100 p-5 rounded-2xl shadow-sm border border-base-300 dark:bg-[#111111] dark:border-white/10">
                 <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                      <div className="flex flex-wrap gap-3 flex-1">
                         <MultiSelectDropdown title="Scope: Projects" options={projects.map(p => ({ value: p.id!, label: p.title }))} selectedValues={selectedProjectIds} onChange={setSelectedProjectIds} withSearch />
@@ -234,7 +233,7 @@ const FinancialReportsTab: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                    <div className="lg:col-span-3 bg-base-100 p-6 rounded-2xl shadow-sm border border-base-300 dark:bg-gray-800 dark:border-gray-700">
+                    <div className="lg:col-span-3 bg-base-100 p-6 rounded-2xl shadow-sm border border-base-300 dark:bg-[#111111] dark:border-white/10">
                         <h3 className="text-xs font-bold text-gray-400 mb-6 uppercase tracking-[0.2em]">Consumption Timeline</h3>
                         <div className="h-[300px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
@@ -248,7 +247,7 @@ const FinancialReportsTab: React.FC = () => {
                             </ResponsiveContainer>
                         </div>
                     </div>
-                    <div className="lg:col-span-2 bg-base-100 p-6 rounded-2xl shadow-sm border border-base-300 dark:bg-gray-800 dark:border-gray-700">
+                    <div className="lg:col-span-2 bg-base-100 p-6 rounded-2xl shadow-sm border border-base-300 dark:bg-[#111111] dark:border-white/10">
                         <h3 className="text-xs font-bold text-gray-400 mb-6 uppercase tracking-[0.2em]">Category Allocation</h3>
                         <div className="h-[300px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
@@ -265,7 +264,7 @@ const FinancialReportsTab: React.FC = () => {
                 </div>
             </div>
 
-             <div className="bg-base-100 rounded-2xl shadow-sm border border-base-300 dark:bg-gray-800 dark:border-gray-700 overflow-hidden">
+             <div className="bg-base-100 rounded-2xl shadow-sm border border-base-300 dark:bg-[#111111] dark:border-white/10 overflow-hidden">
                  <div className="p-6 border-b border-base-200 dark:border-gray-700 bg-base-200/20">
                     <h3 className="text-xs font-bold text-base-content dark:text-white uppercase tracking-[0.2em]">Detailed Fiscal Audit Trail</h3>
                  </div>
@@ -281,7 +280,7 @@ const FinancialReportsTab: React.FC = () => {
                                 <th className="px-6 py-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-[0.1em]">Lifecycle</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-base-100 divide-y divide-base-200 dark:bg-gray-800 dark:divide-gray-700">
+                        <tbody className="bg-base-100 divide-y divide-base-200 dark:bg-[#111111] dark:divide-gray-700">
                             {filteredTasks.map(task => {
                                 const act = task.completionDetails?.actualCost || 0;
                                 const est = task.estimatedCost || 0;

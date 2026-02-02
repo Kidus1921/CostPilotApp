@@ -9,7 +9,8 @@ import {
     ArrowLeftIcon, PlusIcon, FolderIcon, ClockIcon, CheckCircleIcon, 
     FinanceIcon, UserGroupIcon, CalendarIcon, XIcon, PaperclipIcon, 
     CheckIcon, PencilIcon, TrashIcon, PauseIcon, PlayIcon, 
-    DocumentTextIcon, PhotographIcon, InformationCircleIcon 
+    DocumentTextIcon, InformationCircleIcon,
+    ChatIcon
 } from '../IconComponents';
 import Avatar from '../Avatar';
 import { logActivity } from '../../services/activityLogger';
@@ -91,6 +92,7 @@ const ProjectsPage: React.FC = () => {
     const { projects, users, currentUser, refreshData } = useAppContext();
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [uploading, setUploading] = useState(false);
@@ -99,13 +101,15 @@ const ProjectsPage: React.FC = () => {
     const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
     const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
     const [costInputs, setCostInputs] = useState<Record<string, string>>({});
+    const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
     const [nameEditInputs, setNameEditInputs] = useState<Record<string, string>>({});
 
     const [newTaskName, setNewTaskName] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // RBAC Helpers
-    const isAdminOrPM = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.ProjectManager;
+    const isAdmin = currentUser?.role === UserRole.Admin;
+    const isAdminOrPM = isAdmin || currentUser?.role === UserRole.ProjectManager;
 
     // Handle deep navigation
     useEffect(() => {
@@ -142,6 +146,23 @@ const ProjectsPage: React.FC = () => {
             refreshData();
         } else {
             alert(`Operational Error: ${error.message}`);
+        }
+    };
+
+    const handleDeleteProject = async (project: Project) => {
+        if (!isAdmin) {
+            alert("Authorization Restricted: Only Administrators can purge projects.");
+            return;
+        }
+        if (!confirm(`CRITICAL ACTION: Purge project "${project.title}" and all associated data from the registry?`)) return;
+
+        const { error } = await supabase.from('projects').delete().eq('id', project.id);
+        if (!error) {
+            logActivity('Project Purge', project.title);
+            refreshData();
+            if (selectedProject?.id === project.id) setSelectedProject(null);
+        } else {
+            alert("Purge Failure: " + error.message);
         }
     };
 
@@ -204,6 +225,8 @@ const ProjectsPage: React.FC = () => {
 
     const handleCompleteTask = async (taskId: string) => {
         const costStr = costInputs[taskId];
+        const comment = commentInputs[taskId] || 'Completed via Operational Dashboard';
+        
         if (!selectedProject || !costStr) return;
 
         const actualCost = parseFloat(costStr);
@@ -218,7 +241,7 @@ const ProjectsPage: React.FC = () => {
                     ...t,
                     status: TaskStatus.Completed,
                     completionDetails: {
-                        description: 'Operational Finalization',
+                        description: comment,
                         category: ExpenseCategory.Miscellaneous,
                         actualCost: actualCost,
                         completedAt: new Date().toISOString()
@@ -235,12 +258,32 @@ const ProjectsPage: React.FC = () => {
 
     const handleHoldProject = async () => {
         if (!isAdminOrPM) return;
-        await persistProjectUpdates({ status: ProjectStatus.OnHold }, 'Project Suspension', 'Status changed to ON HOLD');
+        await persistProjectUpdates({ 
+            status: ProjectStatus.OnHold,
+            holdAt: new Date().toISOString() 
+        }, 'Project Suspension', 'Status changed to ON HOLD');
     };
 
     const handleResumeProject = async () => {
         if (!isAdminOrPM) return;
-        await persistProjectUpdates({ status: ProjectStatus.InProgress }, 'Project Activation', 'Status resumed to IN PROGRESS');
+        await persistProjectUpdates({ 
+            status: ProjectStatus.InProgress
+        }, 'Project Activation', 'Status resumed to IN PROGRESS');
+    };
+
+    const handleFinishProject = async () => {
+        if (!isAdminOrPM || !selectedProject) return;
+        const pendingTasks = selectedProject.tasks?.filter(t => t.status !== TaskStatus.Completed).length || 0;
+        if (pendingTasks > 0) {
+            if (!confirm(`Project has ${pendingTasks} unfinalized tasks. Force closure and mark as Finished?`)) return;
+        } else {
+            if (!confirm(`Mark project "${selectedProject.title}" as Finished?`)) return;
+        }
+
+        await persistProjectUpdates({ 
+            status: ProjectStatus.Completed,
+            completedAt: new Date().toISOString()
+        }, 'Project Lifecycle', 'Scope finalized and marked as FINISHED');
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -284,15 +327,16 @@ const ProjectsPage: React.FC = () => {
     }, [projects, searchTerm]);
 
     const getProgressColor = (percent: number) => {
-        if (percent <= 30) return 'bg-brand-tertiary'; // Early phase / High attention
-        if (percent <= 70) return 'bg-brand-secondary'; // Active phase
-        return 'bg-green-500'; // Finalizing phase
+        if (percent <= 30) return 'bg-brand-tertiary'; 
+        if (percent <= 70) return 'bg-brand-secondary'; 
+        return 'bg-green-500'; 
     };
 
     if (selectedProject) {
         const budgetUtilized = selectedProject.budget > 0 ? (selectedProject.spent / selectedProject.budget) * 100 : 0;
         const deadline = getDeadlineStatus(selectedProject.endDate);
         const isActiveStatus = selectedProject.status === ProjectStatus.InProgress;
+        const isCompleted = selectedProject.status === ProjectStatus.Completed;
         const isOnHold = selectedProject.status === ProjectStatus.OnHold;
         const canManageUploads = selectedProject.status === ProjectStatus.InProgress || selectedProject.status === ProjectStatus.Completed;
 
@@ -304,14 +348,27 @@ const ProjectsPage: React.FC = () => {
                     </button>
                     
                     {isAdminOrPM && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button onClick={() => setIsEditModalOpen(true)} className="flex items-center gap-2 text-[10px] font-bold bg-white dark:bg-white/5 text-gray-700 dark:text-white px-5 py-2 rounded-xl hover:bg-base-200 dark:hover:bg-white/10 shadow-sm border border-base-300 dark:border-white/10 uppercase tracking-widest transition-all">
+                                <PencilIcon className="w-3.5 h-3.5"/> Edit Scope
+                            </button>
                             {isOnHold ? (
                                 <button onClick={handleResumeProject} className="flex items-center gap-2 text-[10px] font-bold bg-green-500 text-white px-5 py-2 rounded-xl hover:brightness-110 shadow-lg uppercase tracking-widest transition-all">
                                     <PlayIcon className="w-3.5 h-3.5"/> Resume Operations
                                 </button>
-                            ) : isActiveStatus && (
-                                <button onClick={handleHoldProject} className="flex items-center gap-2 text-[10px] font-bold bg-brand-secondary text-brand-secondary-content px-5 py-2 rounded-xl hover:brightness-110 shadow-lg uppercase tracking-widest transition-all">
-                                    <PauseIcon className="w-3.5 h-3.5"/> Suspend Project
+                            ) : isActiveStatus ? (
+                                <>
+                                    <button onClick={handleHoldProject} className="flex items-center gap-2 text-[10px] font-bold bg-brand-secondary text-brand-secondary-content px-5 py-2 rounded-xl hover:brightness-110 shadow-lg uppercase tracking-widest transition-all">
+                                        <PauseIcon className="w-3.5 h-3.5"/> Suspend Project
+                                    </button>
+                                    <button onClick={handleFinishProject} className="flex items-center gap-2 text-[10px] font-bold bg-brand-primary text-white px-5 py-2 rounded-xl hover:brightness-110 shadow-lg uppercase tracking-widest transition-all">
+                                        <CheckCircleIcon className="w-3.5 h-3.5"/> Mark Finished
+                                    </button>
+                                </>
+                            ) : null}
+                            {isAdmin && (
+                                <button onClick={() => handleDeleteProject(selectedProject)} className="flex items-center gap-2 text-[10px] font-bold bg-brand-tertiary text-white px-5 py-2 rounded-xl hover:brightness-110 shadow-lg uppercase tracking-widest transition-all">
+                                    <TrashIcon className="w-3.5 h-3.5"/> Purge
                                 </button>
                             )}
                         </div>
@@ -320,7 +377,6 @@ const ProjectsPage: React.FC = () => {
                 
                 {/* Header Surface */}
                 <div className="bg-base-100 dark:bg-[#111111] p-8 rounded-2xl border border-base-300 dark:border-white/10 shadow-sm relative overflow-hidden">
-                    {/* Visual Progress Telemetry */}
                     <div className="absolute top-0 left-0 right-0 h-1.5 bg-base-200 dark:bg-white/5">
                         <div 
                             className={`h-full transition-all duration-1000 ease-in-out shadow-[0_0_10px_rgba(0,0,0,0.1)] ${getProgressColor(selectedProject.completionPercentage)}`}
@@ -338,9 +394,11 @@ const ProjectsPage: React.FC = () => {
                                     <h2 className="text-3xl font-bold tracking-tighter dark:text-white uppercase leading-none">{selectedProject.title}</h2>
                                     <div className="flex items-center gap-3 mt-2">
                                         <StatusBadge status={selectedProject.status} />
-                                        <div className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${deadline.bgColor} ${deadline.color} border border-current opacity-80`}>
-                                            {deadline.label}
-                                        </div>
+                                        {!isCompleted && (
+                                            <div className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${deadline.bgColor} ${deadline.color} border border-current opacity-80`}>
+                                                {deadline.label}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -366,6 +424,28 @@ const ProjectsPage: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Left Intelligence Column */}
                     <div className="lg:col-span-1 space-y-6">
+                        {/* Team Participants Section */}
+                        <div className="bg-base-100 dark:bg-[#111111] p-6 rounded-2xl border border-base-300 dark:border-white/10 shadow-sm">
+                            <div className="flex items-center gap-2 mb-6">
+                                <UserGroupIcon className="w-5 h-5 text-brand-primary" />
+                                <h3 className="text-xs font-bold uppercase tracking-widest dark:text-white">Operational Team</h3>
+                            </div>
+                            <div className="grid grid-cols-1 gap-3">
+                                {selectedProject.team?.length ? selectedProject.team.map(member => (
+                                    <div key={member.id} className="flex items-center gap-3 p-2 bg-base-200/50 dark:bg-white/5 rounded-xl border border-base-300 dark:border-white/5">
+                                        <Avatar name={member.name} size="sm" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[11px] font-bold dark:text-white truncate">{member.name}</p>
+                                            <p className="text-[8px] text-gray-500 uppercase font-black tracking-widest">{member.role}</p>
+                                        </div>
+                                        {member.id === selectedProject.teamLeader?.id && (
+                                            <span className="text-[7px] font-black bg-brand-primary/20 text-brand-primary px-1.5 py-0.5 rounded uppercase">Lead</span>
+                                        )}
+                                    </div>
+                                )) : <p className="text-[10px] text-center text-gray-400 uppercase py-4 font-bold tracking-widest">No members deployed</p>}
+                            </div>
+                        </div>
+
                         <div className="bg-base-100 dark:bg-[#111111] p-6 rounded-2xl border border-base-300 dark:border-white/10 shadow-sm">
                             <div className="flex items-center gap-2 mb-6">
                                 <FinanceIcon className="w-5 h-5 text-brand-primary" />
@@ -416,21 +496,6 @@ const ProjectsPage: React.FC = () => {
                                 )) : <p className="text-[10px] text-center text-gray-400 uppercase py-6 font-bold tracking-widest border border-dashed border-base-300 dark:border-white/5 rounded-xl">No assets archived</p>}
                             </div>
                         </div>
-
-                        <div className="bg-base-100 dark:bg-[#111111] p-6 rounded-2xl border border-base-300 dark:border-white/10 shadow-sm">
-                            <div className="flex items-center gap-2 mb-6">
-                                <CalendarIcon className="w-5 h-5 text-brand-primary" />
-                                <h3 className="text-xs font-bold uppercase tracking-widest dark:text-white">Temporal Awareness</h3>
-                            </div>
-                            <div className="flex justify-between text-xs font-bold mb-4">
-                                <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Deployed</p><p className="dark:text-white">{new Date(selectedProject.startDate).toLocaleDateString()}</p></div>
-                                <div className="text-right"><p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Terminal</p><p className="dark:text-white">{new Date(selectedProject.endDate).toLocaleDateString()}</p></div>
-                            </div>
-                            <div className="flex items-center gap-2 mt-4 text-[9px] font-bold text-gray-500 uppercase tracking-widest bg-base-200 dark:bg-white/5 p-3 rounded-lg border border-base-300 dark:border-white/10">
-                                <ClockIcon className="w-4 h-4 text-brand-primary" />
-                                <span>Real-time deadline tracking enabled</span>
-                            </div>
-                        </div>
                     </div>
 
                     {/* Right Operation Column */}
@@ -475,19 +540,29 @@ const ProjectsPage: React.FC = () => {
                                 {selectedProject.tasks?.length ? selectedProject.tasks.map(task => {
                                     const isCompleting = completingTaskId === task.id;
                                     const isEditing = editingTaskId === task.id;
-                                    const isCompleted = task.status === TaskStatus.Completed;
-                                    const canModify = !isCompleted || isAdminOrPM;
+                                    const isTaskCompleted = task.status === TaskStatus.Completed;
+                                    const canModify = !isTaskCompleted || isAdminOrPM;
 
                                     return (
-                                        <div key={task.id} className={`p-5 rounded-2xl border transition-all shadow-sm group ${isCompleted ? 'bg-base-200/40 dark:bg-white/[0.02] border-base-200 dark:border-white/5' : 'bg-base-100 dark:bg-[#090909] border-base-300 dark:border-white/5 hover:border-brand-primary/30'}`}>
+                                        <div 
+                                            key={task.id} 
+                                            onClick={() => {
+                                                if (!isTaskCompleted && isActiveStatus && !isOnHold && !isCompleting) {
+                                                    setCompletingTaskId(task.id);
+                                                    setCostInputs({...costInputs, [task.id]: ''});
+                                                    setCommentInputs({...commentInputs, [task.id]: ''});
+                                                }
+                                            }}
+                                            className={`p-5 rounded-2xl border transition-all shadow-sm group ${isTaskCompleted ? 'bg-base-200/40 dark:bg-white/[0.02] border-base-200 dark:border-white/5' : 'bg-base-100 dark:bg-[#090909] border-base-300 dark:border-white/5 hover:border-brand-primary/30 cursor-pointer'}`}
+                                        >
                                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                                 <div className="flex items-start gap-4 flex-1 min-w-0">
-                                                    <div className={`mt-1 flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full border-2 ${isCompleted ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 dark:border-white/10 animate-pulse'}`}>
-                                                        {isCompleted && <CheckIcon className="w-3.5 h-3.5" />}
+                                                    <div className={`mt-1 flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full border-2 ${isTaskCompleted ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 dark:border-white/10 animate-pulse'}`}>
+                                                        {isTaskCompleted && <CheckIcon className="w-3.5 h-3.5" />}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         {isEditing ? (
-                                                            <div className="flex gap-2 items-center">
+                                                            <div className="flex gap-2 items-center" onClick={e => e.stopPropagation()}>
                                                                 <input 
                                                                     type="text" 
                                                                     value={nameEditInputs[task.id] || task.name} 
@@ -501,11 +576,11 @@ const ProjectsPage: React.FC = () => {
                                                         ) : (
                                                             <>
                                                                 <div className="flex items-center gap-2">
-                                                                    <p className={`text-sm font-bold truncate transition-colors ${isCompleted ? 'text-gray-500 dark:text-gray-400 line-through' : 'dark:text-white'}`}>
+                                                                    <p className={`text-sm font-bold truncate transition-colors ${isTaskCompleted ? 'text-gray-500 dark:text-gray-400 line-through' : 'dark:text-white'}`}>
                                                                         {task.name}
                                                                     </p>
-                                                                    {canModify && !isOnHold && (
-                                                                        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-2 transition-opacity">
+                                                                    {canModify && !isOnHold && !isCompleted && (
+                                                                        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-2 transition-opacity" onClick={e => e.stopPropagation()}>
                                                                             <button onClick={() => {
                                                                                 setEditingTaskId(task.id);
                                                                                 setNameEditInputs({...nameEditInputs, [task.id]: task.name});
@@ -518,24 +593,33 @@ const ProjectsPage: React.FC = () => {
                                                                         </div>
                                                                     )}
                                                                 </div>
-                                                                <p className="text-[9px] text-gray-500 uppercase tracking-widest font-bold flex items-center gap-1.5 mt-1">
-                                                                    <UserGroupIcon className="w-2.5 h-2.5" /> Agent: {task.assignedTo?.name}
-                                                                </p>
+                                                                <div className="flex wrap items-center gap-3 mt-1">
+                                                                    <p className="text-[9px] text-gray-500 uppercase tracking-widest font-bold flex items-center gap-1.5">
+                                                                        <UserGroupIcon className="w-2.5 h-2.5" /> Agent: {task.assignedTo?.name}
+                                                                    </p>
+                                                                    {isTaskCompleted && task.completionDetails?.description && (
+                                                                        <p className="text-[9px] text-gray-400 dark:text-gray-500 italic flex items-center gap-1">
+                                                                            <ChatIcon className="w-2.5 h-2.5" /> "{task.completionDetails.description}"
+                                                                        </p>
+                                                                    )}
+                                                                </div>
                                                             </>
                                                         )}
                                                     </div>
                                                 </div>
                                                 
                                                 <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                                                    {isCompleted ? (
+                                                    {isTaskCompleted ? (
                                                         <div className="text-right flex flex-col items-end">
                                                             <p className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">Consumption</p>
                                                             <p className="text-xs font-black dark:text-gray-200">{formatCurrency(task.completionDetails?.actualCost || 0)}</p>
                                                         </div>
                                                     ) : (!isCompleting && isActiveStatus && !isOnHold) && (
                                                         <button 
-                                                            onClick={() => {
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
                                                                 setCostInputs({...costInputs, [task.id]: ''});
+                                                                setCommentInputs({...commentInputs, [task.id]: ''});
                                                                 setCompletingTaskId(task.id);
                                                             }}
                                                             className="px-4 py-2 bg-green-500/10 text-green-600 border border-green-500/20 text-[9px] font-black uppercase rounded-xl hover:bg-green-600 hover:text-white transition-all tracking-[0.15em] shadow-sm"
@@ -548,31 +632,42 @@ const ProjectsPage: React.FC = () => {
                                             </div>
 
                                             {isCompleting && (
-                                                <div className="mt-4 p-5 bg-base-200 dark:bg-black/60 rounded-2xl border border-green-500/30 animate-fadeIn ring-4 ring-green-500/5">
+                                                <div className="mt-4 p-5 bg-base-200 dark:bg-black/60 rounded-2xl border border-green-500/30 animate-fadeIn ring-4 ring-green-500/5" onClick={e => e.stopPropagation()}>
                                                     <p className="text-[10px] font-bold text-green-600 uppercase mb-4 tracking-[0.2em] flex items-center gap-2">
                                                         <InformationCircleIcon className="w-4 h-4" /> Final Consumption Reporting Required
                                                     </p>
-                                                    <div className="flex flex-col sm:flex-row gap-3">
-                                                        <div className="relative flex-1">
-                                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
-                                                            <input 
-                                                                type="number" 
-                                                                placeholder="Actual Consumption Cost..." 
-                                                                value={costInputs[task.id] || ''}
-                                                                onChange={e => setCostInputs({...costInputs, [task.id]: e.target.value})}
-                                                                className="w-full pl-8 pr-4 py-3 text-xs bg-base-100 dark:bg-[#111111] border border-base-300 dark:border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-green-500/50 font-bold"
-                                                                autoFocus
-                                                            />
+                                                    <div className="space-y-4">
+                                                        <div className="flex flex-col sm:flex-row gap-3">
+                                                            <div className="relative flex-1 group">
+                                                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+                                                                <input 
+                                                                    type="number" 
+                                                                    placeholder="Actual Consumption Cost..." 
+                                                                    value={costInputs[task.id] || ''}
+                                                                    onChange={e => setCostInputs({...costInputs, [task.id]: e.target.value})}
+                                                                    className="w-full pl-8 pr-4 py-3 text-xs bg-base-100 dark:bg-[#111111] border border-base-300 dark:border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-green-500/50 font-bold"
+                                                                    autoFocus
+                                                                />
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <input 
+                                                                    type="text" 
+                                                                    placeholder="Operational observations / comments..." 
+                                                                    value={commentInputs[task.id] || ''}
+                                                                    onChange={e => setCommentInputs({...commentInputs, [task.id]: e.target.value})}
+                                                                    className="w-full px-4 py-3 text-xs bg-base-100 dark:bg-[#111111] border border-base-300 dark:border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-green-500/50 font-medium"
+                                                                />
+                                                            </div>
                                                         </div>
                                                         <div className="flex gap-2">
                                                             <button 
                                                                 onClick={() => handleCompleteTask(task.id)}
                                                                 className="flex-1 px-8 py-3 bg-green-600 text-white text-[10px] font-bold uppercase rounded-xl hover:brightness-110 active:scale-95 transition-all shadow-md flex items-center justify-center gap-2"
                                                             >
-                                                                <CheckIcon className="w-3.5 h-3.5" /> Submit & Close
+                                                                <CheckIcon className="w-3.5 h-3.5" /> Submit & Close Task
                                                             </button>
                                                             <button 
-                                                                onClick={() => { setCompletingTaskId(null); setCostInputs({...costInputs, [task.id]: ''}); }}
+                                                                onClick={() => { setCompletingTaskId(null); setCostInputs({...costInputs, [task.id]: ''}); setCommentInputs({...commentInputs, [task.id]: ''}); }}
                                                                 className="px-6 py-3 text-gray-400 hover:text-brand-tertiary text-[10px] font-bold uppercase transition-colors"
                                                             >
                                                                 Abort
@@ -594,6 +689,19 @@ const ProjectsPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
+
+                {isEditModalOpen && (
+                    <CreateProjectModal 
+                        isOpen={isEditModalOpen} 
+                        onClose={() => setIsEditModalOpen(false)} 
+                        users={users} 
+                        initialData={selectedProject}
+                        onSave={async (data) => {
+                            await persistProjectUpdates(data, 'Scope Revision', selectedProject.title);
+                            setIsEditModalOpen(false);
+                        }} 
+                    />
+                )}
             </div>
         );
     }
@@ -602,12 +710,13 @@ const ProjectsPage: React.FC = () => {
         <div className="space-y-6 animate-fadeIn">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-base-100 dark:bg-[#111111] p-8 rounded-2xl border border-base-300 dark:border-white/10 shadow-sm">
                 <div>
-                    <h2 className="text-3xl font-bold dark:text-white uppercase tracking-tighter">Operational Workspace</h2>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mt-3">Comprehensive Project Audit & Execution Registry</p>
+                    <h2 className="text-3xl font-bold dark:text-white uppercase tracking-tighter">Projects</h2>
                 </div>
-                <button onClick={() => setIsCreateModalOpen(true)} className="bg-brand-primary text-white font-bold py-3.5 px-10 rounded-xl shadow-xl hover:brightness-110 active:scale-95 transition-all uppercase text-[10px] tracking-[0.25em] flex items-center gap-3">
-                    <PlusIcon className="w-4 h-4"/> Initialize Scope
-                </button>
+                {isAdminOrPM && (
+                    <button onClick={() => setIsCreateModalOpen(true)} className="bg-brand-primary text-white font-bold py-3.5 px-10 rounded-xl shadow-xl hover:brightness-110 active:scale-95 transition-all uppercase text-[10px] tracking-[0.25em] flex items-center gap-3">
+                        <PlusIcon className="w-4 h-4"/> Add Project
+                    </button>
+                )}
             </div>
 
             <div className="relative max-w-xl">
@@ -621,7 +730,14 @@ const ProjectsPage: React.FC = () => {
                 />
             </div>
 
-            <ProjectsTable projects={filteredProjects} onViewProject={(id) => setSelectedProject(projects.find(p => p.id === id) || null)} sortConfig={null} requestSort={() => {}} />
+            <ProjectsTable 
+                projects={filteredProjects} 
+                onViewProject={(id) => setSelectedProject(projects.find(p => p.id === id) || null)} 
+                sortConfig={null} 
+                requestSort={() => {}} 
+                canDelete={isAdmin}
+                onDeleteProject={handleDeleteProject}
+            />
 
             {isCreateModalOpen && (
                 <CreateProjectModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} users={users} onSave={async (data) => {

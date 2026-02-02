@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Project, ProjectStatus } from '../types';
@@ -31,7 +30,7 @@ const ProjectStatusChart: React.FC<ProjectStatusChartProps> = ({ projects }) => 
   };
 
   return (
-    <div className="bg-base-100 p-6 rounded-xl shadow-md dark:bg-gray-800 border border-base-300 dark:border-gray-700">
+    <div className="bg-base-100 p-6 rounded-xl shadow-md dark:bg-[#111111] border border-base-300 dark:border-white/10">
       <h3 className="text-lg font-bold text-base-content dark:text-white uppercase tracking-tighter">Project Status Distribution</h3>
       <div style={{ width: '100%', height: 300 }} className="mt-4">
         <ResponsiveContainer>

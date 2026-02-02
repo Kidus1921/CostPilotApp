@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, FC } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Project, ProjectStatus, Task, TaskStatus } from '../../types';
@@ -154,7 +153,7 @@ const FinancialProjectsTab: React.FC = () => {
 
     return (
         <div className="space-y-4">
-            <div className="bg-base-100 p-6 rounded-2xl shadow-sm border border-base-300 dark:bg-gray-800 dark:border-gray-700">
+            <div className="bg-base-100 p-6 rounded-2xl shadow-sm border border-base-300 dark:bg-[#111111] dark:border-white/10">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                     <label htmlFor="project-filter" className="text-sm font-bold uppercase tracking-widest text-gray-500">
                         View Scope:
@@ -177,7 +176,7 @@ const FinancialProjectsTab: React.FC = () => {
             </div>
 
             {selectedProjectId === 'all' ? (
-                <div className="bg-base-100 p-6 rounded-2xl shadow-sm border border-base-300 dark:bg-gray-800 dark:border-gray-700">
+                <div className="bg-base-100 p-6 rounded-2xl shadow-sm border border-base-300 dark:bg-[#111111] dark:border-white/10">
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
                         <h3 className="text-xl font-bold text-base-content dark:text-white uppercase tracking-wider">Portfolio Fiscal Audit</h3>
                         <button 
@@ -223,7 +222,7 @@ const FinancialProjectsTab: React.FC = () => {
                     </div>
                 </div>
             ) : (
-                <div className="bg-base-100 p-6 rounded-2xl shadow-sm border border-base-300 dark:bg-gray-800 dark:border-gray-700">
+                <div className="bg-base-100 p-6 rounded-2xl shadow-sm border border-base-300 dark:bg-[#111111] dark:border-white/10">
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
                         <h3 className="text-xl font-bold text-base-content dark:text-white uppercase tracking-wider">Detailed Task Audit: {selectedProject?.title}</h3>
                         <button 

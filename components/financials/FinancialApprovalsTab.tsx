@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Project, ProjectStatus, NotificationType, NotificationPriority } from '../../types';
@@ -45,7 +44,10 @@ const FinancialApprovalsTab: React.FC = () => {
     const handleApprove = async (project: Project) => {
         if (!project.id || !project.teamLeader.id) return;
         
-        const { error } = await supabase.from('projects').update({ status: ProjectStatus.InProgress }).eq('id', project.id);
+        const { error } = await supabase.from('projects').update({ 
+            status: ProjectStatus.InProgress,
+            acceptedAt: new Date().toISOString()
+        }).eq('id', project.id);
         
         if (error) {
             console.error("Failed to approve project:", error);
@@ -113,7 +115,7 @@ const FinancialApprovalsTab: React.FC = () => {
 
     return (
         <div className="animate-fadeIn">
-             <div className="bg-base-100 rounded-2xl shadow-sm border border-base-300 overflow-hidden dark:bg-gray-800 dark:border-gray-700">
+             <div className="bg-base-100 rounded-2xl shadow-sm border border-base-300 overflow-hidden dark:bg-[#111111] dark:border-white/10">
                 <table className="min-w-full divide-y divide-base-300 dark:divide-gray-700">
                     <thead className="bg-base-200 dark:bg-gray-700/50">
                         <tr>

@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { useAppContext } from '../../AppContext';
 import { ProjectStatus } from '../../types';
@@ -148,7 +147,7 @@ const FinancialTeamsTab: React.FC = () => {
             </h2>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-base-100 p-6 rounded-xl shadow-md dark:bg-gray-800 border border-base-300 dark:border-gray-700">
+                <div className="bg-base-100 p-6 rounded-xl shadow-md dark:bg-[#111111] border border-base-300 dark:border-white/10">
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Budget Utilization by Team</h3>
                     <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -166,7 +165,7 @@ const FinancialTeamsTab: React.FC = () => {
                     </ResponsiveContainer>
                 </div>
 
-                <div className="bg-base-100 p-6 rounded-xl shadow-md dark:bg-gray-800 border border-base-300 dark:border-gray-700">
+                <div className="bg-base-100 p-6 rounded-xl shadow-md dark:bg-[#111111] border border-base-300 dark:border-white/10">
                      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Portfolio Portfolio Health</h3>
                      <ResponsiveContainer width="100%" height={300}>
                         <PieChart>
@@ -193,7 +192,7 @@ const FinancialTeamsTab: React.FC = () => {
                 </div>
             </div>
 
-            <div className="bg-base-100 rounded-xl shadow-md overflow-x-auto dark:bg-gray-800 border border-base-300 dark:border-gray-700">
+            <div className="bg-base-100 rounded-xl shadow-md overflow-x-auto dark:bg-[#111111] border border-base-300 dark:border-white/10">
                  <div className="p-6 border-b border-base-200 dark:border-gray-700 bg-base-200/30">
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white uppercase tracking-wider">Performance Audit by Team</h3>
                  </div>
@@ -208,7 +207,7 @@ const FinancialTeamsTab: React.FC = () => {
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">KPI Delivery</th>
                         </tr>
                     </thead>
-                    <tbody className="bg-base-100 divide-y divide-base-200 dark:bg-gray-800 dark:divide-gray-700">
+                    <tbody className="bg-base-100 divide-y divide-base-200 dark:bg-[#111111] dark:divide-gray-700">
                         {teamMetrics.map((team) => (
                             <tr key={team.teamId} className="hover:bg-base-200/50 dark:hover:bg-gray-700/50 transition-colors">
                                 <td className="px-6 py-4 whitespace-nowrap font-bold text-gray-900 dark:text-white">{team.teamName}</td>

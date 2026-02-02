@@ -51,7 +51,7 @@ const SortableHeader: React.FC<{
     )
 };
 
-const ProjectsTable: React.FC<ProjectsTableProps> = ({ projects, onViewProject, sortConfig, requestSort, currentUser, canDelete, onDeleteProject }) => {
+const ProjectsTable: React.FC<ProjectsTableProps> = ({ projects, onViewProject, sortConfig, requestSort, canDelete, onDeleteProject }) => {
   
     const getRowBackgroundStyle = (project: Project) => {
         const percentage = project.completionPercentage;
@@ -66,7 +66,7 @@ const ProjectsTable: React.FC<ProjectsTableProps> = ({ projects, onViewProject, 
     };
 
     return (
-        <div className="bg-base-100 rounded-xl shadow-md overflow-hidden dark:bg-gray-800 border border-base-200 dark:border-gray-700">
+        <div className="bg-base-100 rounded-2xl shadow-sm overflow-hidden dark:bg-[#111111] border border-base-200 dark:border-white/10">
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-base-300 dark:divide-gray-700">
                     <thead className="bg-base-200 dark:bg-gray-700/50">
@@ -79,7 +79,7 @@ const ProjectsTable: React.FC<ProjectsTableProps> = ({ projects, onViewProject, 
                             <th scope="col" className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
                         </tr>
                     </thead>
-                    <tbody className="bg-base-100 divide-y divide-base-200 dark:bg-gray-800 dark:divide-gray-700">
+                    <tbody className="bg-base-100 divide-y divide-base-200 dark:bg-[#111111] dark:divide-gray-700">
                         {projects.length > 0 ? projects.map(project => {
                             const isCompleted = project.status === ProjectStatus.Completed;
                             const isRejected = project.status === ProjectStatus.Rejected;
@@ -119,24 +119,32 @@ const ProjectsTable: React.FC<ProjectsTableProps> = ({ projects, onViewProject, 
                                         {formatCurrency(project.spent)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium relative z-10">
-                                        {canDelete && onDeleteProject && (
-                                            <button 
-                                                onClick={(e) => {
-                                                    e.stopPropagation(); 
-                                                    onDeleteProject(project);
-                                                }} 
-                                                className="text-gray-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-                                                title="Delete Project"
-                                            >
-                                                <TrashIcon className="w-5 h-5" />
-                                            </button>
-                                        )}
+                                        <div className="flex items-center justify-end gap-2">
+                                            {canDelete && onDeleteProject && (
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation(); 
+                                                        onDeleteProject(project);
+                                                    }} 
+                                                    className="text-gray-400 hover:text-brand-tertiary p-2 rounded-xl hover:bg-brand-tertiary/10 transition-all opacity-0 group-hover:opacity-100"
+                                                    title="Purge Project"
+                                                >
+                                                    <TrashIcon className="w-5 h-5" />
+                                                </button>
+                                            )}
+                                            <div className="p-2 text-gray-400">
+                                                <DotsVerticalIcon className="w-5 h-5" />
+                                            </div>
+                                        </div>
                                     </td>
                                 </tr>
                             );
                         }) : (
                             <tr>
-                                <td colSpan={6} className="text-center py-10 text-base-content-secondary dark:text-gray-400">No projects found.</td>
+                                <td colSpan={6} className="text-center py-20 text-gray-500 dark:text-gray-400">
+                                    <p className="text-xs font-black uppercase tracking-widest">Registry Clean</p>
+                                    <p className="text-[10px] mt-2 font-bold uppercase opacity-50">No matching operational profiles found</p>
+                                </td>
                             </tr>
                         )}
                     </tbody>
