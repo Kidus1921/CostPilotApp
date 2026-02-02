@@ -1,5 +1,6 @@
 
 import React, { useState } from "react";
+import logo from "../images/logo.png";
 import {
   DashboardIcon,
   ProjectsIcon,
@@ -8,7 +9,6 @@ import {
   BellIcon,
   ArrowLeftIcon,
   XIcon,
-  FolderIcon,
 } from "./IconComponents";
 import { UserRole } from "../types";
 import { useAppContext } from "../AppContext";
@@ -190,11 +190,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           ${isMobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"}
         `}
       >
-        <div 
+        <div
           className="absolute inset-0 bg-black/70 backdrop-blur-sm"
           onClick={() => setMobileMenuOpen?.(false)}
         />
-        
+
         <div
           className={`
             absolute top-0 left-0 h-full w-72
@@ -210,11 +210,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             bg-black border-b border-white/10 flex-shrink-0
           ">
             <div className="flex items-center gap-2">
-              <FolderIcon className="w-8 h-8 text-[#d3a200]" />
+              <img src={logo} alt="EDFM Logo" className="w-8 h-8 object-contain" />
               <span className="font-bold text-lg text-white">EDFM</span>
             </div>
 
-            <button 
+            <button
               onClick={() => setMobileMenuOpen?.(false)}
               className="p-2 hover:bg-white/10 rounded-full transition-colors"
             >
@@ -237,7 +237,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               />
             ))}
           </nav>
-          
+
           <div className="p-4 border-t border-white/10 bg-black/40 text-[10px] text-center text-gray-400 uppercase tracking-widest">
             Unified Platform
           </div>
@@ -257,7 +257,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           h-20 flex items-center border-b border-white/10 bg-black
         ">
           <div className={`flex items-center transition-all ${isCollapsed ? "mx-auto" : "ml-4"}`}>
-            <FolderIcon className="w-10 h-10 text-[#d3a200]" />
+            <img src={logo} alt="EDFM Logo" className="w-10 h-10 object-contain" />
             {!isCollapsed && (
               <span className="ml-2 text-xl font-bold text-white uppercase tracking-tighter">EDFM</span>
             )}
