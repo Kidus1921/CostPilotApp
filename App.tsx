@@ -34,7 +34,6 @@ const MainLayout: React.FC = () => {
 
     useEffect(() => {
         if (authChecked && currentUser && !hasSyncedRef.current) {
-            console.log("[System] Initializing operational health sync...");
             runSystemHealthChecks();
             hasSyncedRef.current = true;
         }

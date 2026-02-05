@@ -40,6 +40,7 @@ export interface UserNotificationPreferences {
     priorityThreshold: NotificationPriority;
     projectSubscriptions: string[]; // Array of project IDs
     pushEnabled?: boolean;
+    emailEnabled?: boolean;
 }
 
 

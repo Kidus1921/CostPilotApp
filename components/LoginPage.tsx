@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { FolderIcon } from './IconComponents';
+const LOGO_URL = "https://vgubtzdnimaguwaqzlpa.supabase.co/storage/v1/object/sign/assets/logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yY2Q0MmM3Yi04YzY0LTQzYzItYTA3OC00YzgzNDMyYzIwYWEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvbG9nby5wbmciLCJpYXQiOjE3NzAwNDgwMjQsImV4cCI6ODY1NzY5OTYxNjI0fQ.xAL26M1UaUbJMK5wdZNBbUdR58vPihBK2hovd7rlg38";
 
 interface LoginPageProps {
     onLogin: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
@@ -55,7 +56,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup }) => {
             <div className="w-full max-w-md space-y-8 p-10 bg-base-100 dark:bg-gray-800 shadow-xl rounded-2xl">
                 <div>
                     <div className="flex flex-col items-center justify-center">
-                        <FolderIcon className="w-20 h-20 text-brand-primary mb-4" />
+                         <img src={LOGO_URL} alt="CostPilot Logo" className="w-20 h-20 object-contain mb-4" />
                         <h1 className="text-4xl font-bold text-base-content dark:text-gray-100 tracking-tight uppercase">EDFM</h1>
                     </div>
                     <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">

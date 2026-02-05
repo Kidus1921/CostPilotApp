@@ -8,10 +8,11 @@ import {
   BellIcon,
   ArrowLeftIcon,
   XIcon,
-  FolderIcon,
 } from "./IconComponents";
 import { UserRole } from "../types";
 import { useAppContext } from "../AppContext";
+
+const LOGO_URL = "https://vgubtzdnimaguwaqzlpa.supabase.co/storage/v1/object/sign/assets/logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yY2Q0MmM3Yi04YzY0LTQzYzItYTA3OC00YzgzNDMyYzIwYWEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvbG9nby5wbmciLCJpYXQiOjE3NzAwNDgwMjQsImV4cCI6ODY1NzY5OTYxNjI0fQ.xAL26M1UaUbJMK5wdZNBbUdR58vPihBK2hovd7rlg38";
 
 /* =========================================================
    COLOR SYSTEM (NEGATIVE / DARK MODE FIRST)
@@ -210,7 +211,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             bg-black border-b border-white/10 flex-shrink-0
           ">
             <div className="flex items-center gap-2">
-              <FolderIcon className="w-8 h-8 text-[#d3a200]" />
+              <img src={LOGO_URL} alt="CostPilot Logo" className="w-8 h-8 object-contain" />
               <span className="font-bold text-lg text-white">EDFM</span>
             </div>
 
@@ -257,7 +258,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           h-20 flex items-center border-b border-white/10 bg-black
         ">
           <div className={`flex items-center transition-all ${isCollapsed ? "mx-auto" : "ml-4"}`}>
-            <FolderIcon className="w-10 h-10 text-[#d3a200]" />
+            <img src={LOGO_URL} alt="CostPilot Logo" className="w-10 h-10 object-contain" />
             {!isCollapsed && (
               <span className="ml-2 text-xl font-bold text-white uppercase tracking-tighter">EDFM</span>
             )}

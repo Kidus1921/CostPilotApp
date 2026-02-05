@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Project, ProjectStatus, NotificationType, NotificationPriority } from '../../types';
-/* Added missing CheckCircleIcon import */
 import { CheckIcon, XIcon, CheckCircleIcon } from '../IconComponents';
 import RejectionModal from './RejectionModal';
+import ProjectPreviewModal from './ProjectPreviewModal';
 import { logActivity } from '../../services/activityLogger';
 import { createNotification } from '../../services/notificationService';
 
@@ -14,6 +14,7 @@ const FinancialApprovalsTab: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [projectToReject, setProjectToReject] = useState<Project | null>(null);
+    const [previewProject, setPreviewProject] = useState<Project | null>(null);
 
     const fetchPendingProjects = async () => {
         const { data, error } = await supabase
@@ -33,7 +34,7 @@ const FinancialApprovalsTab: React.FC = () => {
     useEffect(() => {
         fetchPendingProjects();
         const sub = supabase.channel('financial_approvals')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'projects', filter: `status=eq.${ProjectStatus.Pending}` }, fetchPendingProjects)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, fetchPendingProjects)
             .subscribe();
 
         return () => {
@@ -41,12 +42,14 @@ const FinancialApprovalsTab: React.FC = () => {
         };
     }, []);
 
-    const handleApprove = async (project: Project) => {
-        if (!project.id || !project.teamLeader.id) return;
+    const handleApprove = async (e: React.MouseEvent, project: Project) => {
+        e.stopPropagation(); // Prevent row click (preview)
+        if (!project.id || !project.teamLeader?.id) return;
         
         const { error } = await supabase.from('projects').update({ 
             status: ProjectStatus.InProgress,
-            acceptedAt: new Date().toISOString()
+            acceptedAt: new Date().toISOString(),
+            rejectionReason: null // Clear any previous rejection
         }).eq('id', project.id);
         
         if (error) {
@@ -67,7 +70,7 @@ const FinancialApprovalsTab: React.FC = () => {
     };
 
     const handleReject = async (project: Project, reason: string) => {
-        if (!project.id || !project.teamLeader.id) return;
+        if (!project.id || !project.teamLeader?.id) return;
 
         const { error } = await supabase.from('projects').update({ 
             status: ProjectStatus.Rejected,
@@ -90,6 +93,11 @@ const FinancialApprovalsTab: React.FC = () => {
         });
         setProjectToReject(null);
         fetchPendingProjects();
+    };
+
+    const openRejectModal = (e: React.MouseEvent, project: Project) => {
+        e.stopPropagation(); // Prevent row click (preview)
+        setProjectToReject(project);
     };
 
     if (loading) {
@@ -126,14 +134,26 @@ const FinancialApprovalsTab: React.FC = () => {
                     </thead>
                     <tbody className="divide-y divide-base-200 dark:divide-gray-700">
                         {pendingProjects.map(project => (
-                            <tr key={project.id} className="hover:bg-base-200/50 dark:hover:bg-gray-700/50 transition-colors">
-                                <td className="px-6 py-5 whitespace-nowrap font-bold text-base-content dark:text-gray-100">{project.title}</td>
+                            <tr 
+                                key={project.id} 
+                                className="hover:bg-base-200/50 dark:hover:bg-gray-700/50 transition-colors group cursor-pointer"
+                                onClick={() => setPreviewProject(project)}
+                            >
+                                <td className="px-6 py-5 whitespace-nowrap font-bold text-base-content dark:text-gray-100">
+                                    {project.title}
+                                </td>
                                 <td className="px-6 py-5 whitespace-nowrap font-bold text-brand-primary">{formatCurrency(project.budget)}</td>
                                 <td className="px-6 py-5 whitespace-nowrap text-center space-x-3">
-                                    <button onClick={() => handleApprove(project)} className="inline-flex items-center gap-2 bg-green-600 text-white font-bold py-2 px-6 rounded-xl shadow-lg hover:brightness-110 transition-all text-xs">
+                                    <button 
+                                        onClick={(e) => handleApprove(e, project)} 
+                                        className="inline-flex items-center gap-2 bg-green-600 text-white font-bold py-2 px-6 rounded-xl shadow-lg hover:brightness-110 transition-all text-xs"
+                                    >
                                         <CheckIcon className="w-4 h-4"/> Approve
                                     </button>
-                                    <button onClick={() => setProjectToReject(project)} className="inline-flex items-center gap-2 bg-brand-tertiary text-white font-bold py-2 px-6 rounded-xl shadow-lg hover:brightness-110 transition-all text-xs">
+                                    <button 
+                                        onClick={(e) => openRejectModal(e, project)} 
+                                        className="inline-flex items-center gap-2 bg-brand-tertiary text-white font-bold py-2 px-6 rounded-xl shadow-lg hover:brightness-110 transition-all text-xs"
+                                    >
                                         <XIcon className="w-4 h-4"/> Reject
                                     </button>
                                 </td>
@@ -150,7 +170,10 @@ const FinancialApprovalsTab: React.FC = () => {
                     </tbody>
                 </table>
             </div>
+            
+            {/* Modals */}
             {projectToReject && <RejectionModal project={projectToReject} onClose={() => setProjectToReject(null)} onConfirm={handleReject} />}
+            {previewProject && <ProjectPreviewModal project={previewProject} onClose={() => setPreviewProject(null)} />}
         </div>
     );
 };
