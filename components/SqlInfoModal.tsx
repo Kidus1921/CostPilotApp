@@ -7,8 +7,10 @@ interface SqlInfoModalProps {
 }
 
 const SQL_CODE = `-- --- FMS SYSTEM INITIALIZATION ---
+-- PROJECT: CostPilot / EDFM
+-- PURPOSE: Unified User Sync and Notification Engine
 
--- 1. Create notifications table
+-- 1. NOTIFICATIONS TABLE
 CREATE TABLE IF NOT EXISTS public.notifications (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     "userId" UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -23,12 +25,9 @@ CREATE TABLE IF NOT EXISTS public.notifications (
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 -- 2. CREATE USER SYNC TRIGGER
--- This function runs whenever a new user signs up via Supabase Auth
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- 1. Sync to public profile table (public.users)
-  -- We use ON CONFLICT to prevent errors if the user already exists
   INSERT INTO public.users (id, name, email, role, status, active)
   VALUES (
     new.id,
@@ -40,39 +39,41 @@ BEGIN
   )
   ON CONFLICT (id) DO NOTHING;
 
-  -- 2. Create welcome notification
   INSERT INTO public.notifications ("userId", title, message, type, priority, "isRead", timestamp)
   VALUES (
     new.id,
     'Welcome to FMS',
-    'Your financial account has been initialized.',
+    'Your financial account has been initialized and synchronized.',
     'System',
     'Low',
     false,
     NOW()
   );
-
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Cleanup existing trigger to prevent "already exists" errors
+-- 3. TRIGGER REGISTRATION
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-
--- Create the trigger on the auth.users table
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- 3. EDGE FUNCTION DEPLOYMENT
--- Command to deploy the test email function:
--- supabase functions deploy send-test-email
+-- 4. AUTOMATION & EDGE FUNCTIONS
+-- Run these in terminal to enable advanced email features:
 
--- 4. WEBHOOKS & AUTOMATION
--- To enable true 'noreply' background emails:
--- Go to Supabase > Database > Webhooks
--- Event: INSERT on public.notifications
--- URL: /functions/v1/send-email
+-- A) Configuration:
+-- supabase secrets set RESEND_API_KEY=re_your_key
+-- supabase secrets set RESEND_FROM_EMAIL=onboarding@resend.dev
+
+-- B) Deployment:
+-- supabase functions deploy send-test-email
+-- supabase functions deploy send-email
+-- supabase functions deploy due-project-email
+
+-- C) Cron Schedule (Dashboard > Database > Edge HTTP):
+-- Create a Cron Trigger for 'due-project-email'
+-- Schedule: 0 9 * * * (Every morning at 9:00 AM)
 `;
 
 const SqlInfoModal: React.FC<SqlInfoModalProps> = ({ isOpen, onClose }) => {
@@ -87,25 +88,53 @@ const SqlInfoModal: React.FC<SqlInfoModalProps> = ({ isOpen, onClose }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[120] flex justify-center items-center p-4">
-            <div className="bg-base-100 dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[90vh]">
-                <div className="p-4 border-b border-base-200 dark:border-gray-700 flex justify-between items-center">
-                    <h3 className="text-lg font-bold text-base-content dark:text-white uppercase tracking-tighter">FMS System Control</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 font-bold text-xl">
-                        &times;
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[120] flex justify-center items-center p-4 animate-fadeIn">
+            <div className="bg-base-100 dark:bg-[#111111] rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] w-full max-w-4xl flex flex-col max-h-[85vh] border border-base-300 dark:border-white/10 overflow-hidden">
+                {/* Header */}
+                <div className="px-8 py-6 border-b border-base-200 dark:border-white/5 flex justify-between items-center bg-base-200/20 dark:bg-white/[0.02]">
+                    <div>
+                        <h3 className="text-xl font-black text-base-content dark:text-white uppercase tracking-tighter">System Blueprint</h3>
+                        <p className="text-[10px] font-bold text-brand-primary uppercase tracking-[0.2em] mt-1">Operational SQL & Automation Registry</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 text-gray-400 hover:text-brand-tertiary transition-all rounded-full hover:bg-base-200 dark:hover:bg-white/5">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-                <div className="p-4 overflow-auto flex-1 bg-gray-900 text-gray-300 font-mono text-xs relative">
-                    <div className="mb-4 p-4 bg-brand-primary/10 border border-brand-primary/20 rounded-lg text-brand-primary">
-                        <strong>Operational Requirement:</strong> Run this SQL in your Supabase SQL Editor. It includes a cleanup command to overwrite existing triggers if necessary.
+
+                {/* SQL Code Block */}
+                <div className="p-6 overflow-auto flex-1 bg-gray-950 font-mono text-xs relative custom-scrollbar">
+                    <div className="absolute top-4 right-4 z-10">
+                        <button 
+                            onClick={handleCopy} 
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-white font-bold transition-all shadow-lg active:scale-95 ${copied ? 'bg-green-600' : 'bg-brand-primary hover:brightness-110'}`}
+                        >
+                            {copied ? (
+                                <>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                    Copied!
+                                </>
+                            ) : (
+                                <>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                                    Copy Initialization
+                                </>
+                            )}
+                        </button>
                     </div>
-                    <pre className="p-4 whitespace-pre-wrap">{SQL_CODE}</pre>
+                    <pre className="p-4 text-emerald-400 leading-relaxed whitespace-pre selection:bg-brand-primary/30">
+                        {SQL_CODE}
+                    </pre>
                 </div>
-                <div className="p-4 border-t border-base-200 dark:border-gray-700 flex justify-end gap-2 bg-base-100 dark:bg-gray-800 rounded-b-xl">
-                     <button onClick={handleCopy} className={`px-4 py-2 rounded-lg text-white font-bold transition-colors ${copied ? 'bg-green-600' : 'bg-brand-primary hover:bg-teal-700'}`}>
-                        {copied ? 'Copied!' : 'Copy Initialization SQL'}
-                     </button>
-                    <button onClick={onClose} className="px-4 py-2 rounded-lg bg-base-200 hover:bg-base-300 text-base-content font-bold dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white uppercase text-[10px] tracking-widest">Close</button>
+
+                {/* Footer Info */}
+                <div className="px-8 py-5 border-t border-base-200 dark:border-white/5 bg-base-200/30 dark:bg-white/[0.02] flex flex-col sm:flex-row justify-between items-center gap-4">
+                     <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 bg-brand-primary rounded-full animate-pulse shadow-[0_0_8px_rgba(211,162,0,0.5)]"></div>
+                        <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest leading-relaxed">
+                            Includes instructions for <span className="text-brand-primary">Resend Email Relay</span> and <span className="text-brand-primary">Automated Deadlines</span>.
+                        </p>
+                     </div>
+                    <button onClick={onClose} className="px-8 py-2.5 rounded-xl bg-white dark:bg-white/5 text-gray-700 dark:text-white font-black uppercase text-[10px] tracking-[0.2em] border border-base-300 dark:border-white/10 hover:bg-base-100 transition-all shadow-sm">Close Registry</button>
                 </div>
             </div>
         </div>

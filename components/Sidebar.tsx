@@ -92,7 +92,7 @@ const NavItem: React.FC<NavItemProps> = ({
 
     <span
       className={`
-        ${mobile ? "text-[10px] font-bold" : "ml-4 text-sm font-medium"}
+        ${mobile ? "text-[10px] font-bold" : "ml-4 text-sm font-medium uppercase tracking-tighter"}
         transition-all duration-300 origin-left whitespace-nowrap
         ${!mobile && isCollapsed
           ? "w-0 opacity-0 invisible absolute"
@@ -167,7 +167,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* ================= MOBILE FOOTER NAV ================= */}
       <div className="
         md:hidden fixed bottom-0 left-0 right-0 z-[999]
-        bg-[var(--bg-elevated)] border-t border-white/10
+        bg-[var(--bg-surface)] border-t border-white/10
         backdrop-blur-lg h-16 flex justify-around px-1
         shadow-[0_-4px_15px_rgba(0,0,0,0.3)]
       ">
@@ -207,17 +207,21 @@ const Sidebar: React.FC<SidebarProps> = ({
           onClick={e => e.stopPropagation()}
         >
           <div className="
-            h-20 flex items-center justify-between px-4
-            bg-black border-b border-white/10 flex-shrink-0
+            flex flex-col items-center justify-center py-10
+            bg-transparent border-b border-white/5 flex-shrink-0
           ">
-            <div className="flex items-center gap-2">
-              <img src={LOGO_URL} alt="CostPilot Logo" className="w-8 h-8 object-contain" />
-              <span className="font-bold text-lg text-white">EDFM</span>
+            <div className="bg-white p-3 rounded-2xl w-24 h-24 flex items-center justify-center shadow-2xl mb-6">
+              <img src={LOGO_URL} alt="CostPilot Logo" className="w-full h-full object-contain" />
+            </div>
+            
+            <div className="text-center px-4">
+              <h1 className="text-[var(--secondary-color)] text-[11px] font-black uppercase tracking-[0.2em] leading-tight">Financial Control</h1>
+              <p className="text-white/40 text-[9px] font-bold uppercase tracking-[0.3em] mt-1">Institutional Portal</p>
             </div>
 
             <button 
               onClick={() => setMobileMenuOpen?.(false)}
-              className="p-2 hover:bg-white/10 rounded-full transition-colors"
+              className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-full transition-colors"
             >
               <XIcon className="w-6 h-6 text-white" />
             </button>
@@ -239,8 +243,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             ))}
           </nav>
           
-          <div className="p-4 border-t border-white/10 bg-black/40 text-[10px] text-center text-gray-400 uppercase tracking-widest">
-            Unified Platform
+          <div className="p-4 border-t border-white/5 bg-black/20 text-[10px] text-center text-gray-400 uppercase tracking-[0.3em]">
+            Operational Registry
           </div>
         </div>
       </div>
@@ -251,21 +255,25 @@ const Sidebar: React.FC<SidebarProps> = ({
           hidden md:flex flex-col h-screen
           bg-[var(--bg-surface)] border-r border-white/10
           transition-all duration-300 flex-shrink-0
-          ${isCollapsed ? "w-20" : "w-64"}
+          ${isCollapsed ? "w-24" : "w-72"}
         `}
       >
         <div className="
-          h-20 flex items-center border-b border-white/10 bg-black
+          py-12 flex flex-col items-center border-b border-white/5
         ">
-          <div className={`flex items-center transition-all ${isCollapsed ? "mx-auto" : "ml-4"}`}>
-            <img src={LOGO_URL} alt="CostPilot Logo" className="w-10 h-10 object-contain" />
-            {!isCollapsed && (
-              <span className="ml-2 text-xl font-bold text-white uppercase tracking-tighter">EDFM</span>
-            )}
+          <div className={`transition-all duration-300 bg-white p-2.5 rounded-2xl flex items-center justify-center shadow-xl ${isCollapsed ? "w-14 h-14" : "w-28 h-28 mb-6"}`}>
+            <img src={LOGO_URL} alt="CostPilot Logo" className="w-full h-full object-contain" />
           </div>
+
+          {!isCollapsed && (
+            <div className="text-center px-4 animate-fadeIn">
+              <h1 className="text-[var(--secondary-color)] text-[11px] font-black uppercase tracking-[0.2em] leading-tight">Financial Control</h1>
+              <p className="text-white/40 text-[9px] font-bold uppercase tracking-[0.3em] mt-1">Institutional Portal</p>
+            </div>
+          )}
         </div>
 
-        <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto overflow-x-hidden">
+        <nav className="flex-1 px-4 py-8 space-y-2.5 overflow-y-auto overflow-x-hidden">
           {navItems.map(item => (
             <NavItem
               key={item.label}
@@ -278,19 +286,19 @@ const Sidebar: React.FC<SidebarProps> = ({
           ))}
         </nav>
 
-        <div className="p-4 border-t border-white/10">
+        <div className="p-4 border-t border-white/5">
           <button
             onClick={toggleSidebar}
             className="
               w-full flex items-center justify-center
-              rounded-xl p-2
+              rounded-xl p-3
               text-[var(--text-muted)]
               hover:text-white hover:bg-white/5
-              transition
+              transition-all
             "
           >
             <ArrowLeftIcon
-              className={`w-6 h-6 transition-transform ${isCollapsed ? "rotate-180" : ""}`}
+              className={`w-6 h-6 transition-transform duration-500 ${isCollapsed ? "rotate-180" : ""}`}
             />
           </button>
         </div>

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { FinanceIcon } from '../IconComponents';
 
@@ -28,8 +29,13 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
   const percentageSpent = totalBudget && totalBudget > 0 ? (amount / totalBudget) * 100 : 0;
   
   return (
-    <div className="bg-base-100 p-6 rounded-2xl shadow-sm transition-all transform hover:scale-[1.02] dark:bg-[#111111] border border-base-300 dark:border-white/10 flex flex-col justify-between">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-base-100 p-6 rounded-2xl shadow-sm transition-all transform hover:scale-[1.02] dark:bg-[#111111] border border-base-300 dark:border-white/10 flex flex-col justify-between relative overflow-hidden group">
+      {/* Background Watermark Icon */}
+      <div className={`absolute -right-8 -bottom-8 opacity-[0.04] dark:opacity-[0.07] pointer-events-none transform scale-[4] rotate-[-15deg] z-0 transition-transform duration-700 group-hover:scale-[4.5] group-hover:rotate-[-5deg] ${color}`}>
+        <FinanceIcon className="w-32 h-32" />
+      </div>
+
+      <div className="flex items-center justify-between mb-4 relative z-10">
         <div>
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{title}</p>
           <p className={`text-3xl font-bold ${color.includes('tertiary') || percentageSpent > 100 ? 'text-brand-tertiary' : 'text-base-content dark:text-white'} tracking-tighter`}>
@@ -41,7 +47,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
             </p>
           )}
         </div>
-        <div className={`p-3 rounded-xl ${bgColor} flex-shrink-0`}>
+        <div className={`p-3 rounded-xl ${bgColor} flex-shrink-0 relative z-10`}>
           <div className={color}>
             <FinanceIcon className="w-8 h-8"/>
           </div>
@@ -49,7 +55,7 @@ const FinancialSummaryCard: React.FC<FinancialSummaryCardProps> = ({
       </div>
 
       {totalBudget !== undefined && (
-        <div className="mt-2">
+        <div className="mt-2 relative z-10">
           <div className="w-full bg-base-200 dark:bg-white/5 rounded-full h-2 overflow-hidden">
             <div 
               className={`h-full transition-all duration-1000 ease-out ${percentageSpent > 100 ? 'bg-brand-tertiary shadow-[0_0_8px_rgba(196,16,52,0.4)]' : 'bg-brand-primary'}`} 
