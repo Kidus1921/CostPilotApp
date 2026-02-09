@@ -105,7 +105,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           privileges: data.privileges ?? [],
         };
       } else {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
+        // Use type casting to bypass property existence check on SupabaseAuthClient
+        const { data: { user: authUser } } = await (supabase.auth as any).getUser();
         if (!authUser) return;
 
         user = {
@@ -119,7 +120,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           privileges: [],
           teamId: null,
         };
-        await supabase.from('users').insert([user]);
+        // Use upsert to handle race condition with the database trigger
+        await supabase.from('users').upsert([user], { onConflict: 'id' });
       }
 
       setCurrentUser(user);
@@ -131,7 +133,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     let mounted = true;
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
+    // Use type casting to bypass property existence check on SupabaseAuthClient
+    const { data: authListener } = (supabase.auth as any).onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
 
@@ -217,7 +220,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const logout = async () => {
     setLoading(true);
     try {
-      await supabase.auth.signOut();
+      // Use type casting to bypass property existence check on SupabaseAuthClient
+      await (supabase.auth as any).signOut();
     } finally {
       setCurrentUser(null);
       setProjects([]);

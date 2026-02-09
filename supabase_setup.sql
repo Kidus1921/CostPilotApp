@@ -1,87 +1,65 @@
 
--- FINANCIAL MANAGEMENT SYSTEM (FMS) DATABASE SETUP
+-- --- COSTPILOT: ATOMIC IDENTITY REGISTRY ---
+-- PURPOSE: Eliminate RLS recursion via JWT Metadata Claims
 
--- 1. Notifications Table
-CREATE TABLE IF NOT EXISTS public.notifications (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    "userId" UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    title TEXT NOT NULL,
-    message TEXT NOT NULL,
-    type TEXT NOT NULL,
-    priority TEXT DEFAULT 'Medium',
-    "isRead" BOOLEAN DEFAULT FALSE,
-    link TEXT,
-    timestamp TIMESTAMPTZ DEFAULT NOW()
-);
+-- 1. CLEANUP PREVIOUS POLICIES
+DROP POLICY IF EXISTS "Registry: Public Read" ON public.users;
+DROP POLICY IF EXISTS "Registry: Agent Update" ON public.users;
+DROP POLICY IF EXISTS "Registry: Admin Insert" ON public.users;
+DROP POLICY IF EXISTS "Registry: Admin Authority" ON public.users;
+DROP POLICY IF EXISTS "Registry: Admin Delete" ON public.users;
 
-ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can view own" ON public.notifications FOR SELECT USING (auth.uid() = "userId");
-CREATE POLICY "Users can update own" ON public.notifications FOR UPDATE USING (auth.uid() = "userId");
-CREATE POLICY "Authenticated can insert" ON public.notifications FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+-- 2. JWT-BASED SECURITY GATEKEEPER
+-- Reads role directly from JWT user_metadata. 
+-- This does NOT query the users table, preventing recursion loops.
+CREATE OR REPLACE FUNCTION public.is_registry_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN (auth.jwt() -> 'user_metadata' ->> 'role') = 'Admin';
+END;
+$$ LANGUAGE plpgsql STABLE;
 
--- 2. Users / Profiles Table
-CREATE TABLE IF NOT EXISTS public.users (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    name TEXT,
-    email TEXT,
-    role TEXT DEFAULT 'Project Manager',
-    status TEXT DEFAULT 'Active',
-    phone TEXT,
-    "teamId" UUID,
-    "lastLogin" TIMESTAMPTZ,
-    privileges TEXT[] DEFAULT '{}',
-    "notificationPreferences" JSONB DEFAULT '{}'::jsonb,
-    active BOOLEAN DEFAULT TRUE
-);
-
+-- 3. APPLY OPTIMIZED SECURITY POLICIES
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public profiles are viewable by everyone" ON public.users FOR SELECT USING (true);
-CREATE POLICY "Users can update own profile" ON public.users FOR UPDATE USING (auth.uid() = id);
 
--- 3. TRIGGER FUNCTION FOR NEW USERS
--- Automatically syncs Auth users to the public table and creates a welcome notification
-CREATE OR REPLACE FUNCTION public.handle_new_user()
+-- Anyone authenticated can read the registry
+CREATE POLICY "Registry: Public Read" ON public.users 
+    FOR SELECT TO authenticated USING (true);
+
+-- Admins can do anything (checked via JWT metadata)
+CREATE POLICY "Registry: Admin Authority" ON public.users
+    FOR ALL TO authenticated
+    USING (is_registry_admin())
+    WITH CHECK (is_registry_admin());
+
+-- Users can update their own non-sensitive details
+CREATE POLICY "Registry: Self Update" ON public.users 
+    FOR UPDATE TO authenticated 
+    USING (auth.uid() = id) 
+    WITH CHECK (auth.uid() = id);
+
+-- 4. IDENTITY SYNC TRIGGER
+-- Syncs Auth data to Public Profile including the role
+CREATE OR REPLACE FUNCTION public.sync_user_profile()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- Insert the profile row
   INSERT INTO public.users (id, name, email, role, status, active)
   VALUES (
     new.id,
-    COALESCE(new.raw_user_meta_data->>'name', 'Valued Member'),
+    COALESCE(new.raw_user_meta_data->>'name', 'New Agent'),
     new.email,
-    'Project Manager', 
+    COALESCE(new.raw_user_meta_data->>'role', 'Project Manager'), 
     'Active',
     true
   )
-  ON CONFLICT (id) DO NOTHING;
-
-  -- Insert the welcome notification
-  INSERT INTO public.notifications ("userId", title, message, type, priority, "isRead", timestamp)
-  VALUES (
-    new.id,
-    'Welcome to FMS',
-    'Your financial account has been initialized.',
-    'System',
-    'Low',
-    false,
-    NOW()
-  );
-
+  ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    role = EXCLUDED.role;
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Trigger deployment: CRITICAL to use DROP TRIGGER IF EXISTS to prevent creation errors
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
-
--- 4. Push Subscribers (Optional Helper)
-CREATE TABLE IF NOT EXISTS public.push_subscribers (
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    subscriber_id TEXT NOT NULL,
-    platform TEXT DEFAULT 'sendpulse',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    PRIMARY KEY (user_id, subscriber_id)
-);
+  FOR EACH ROW EXECUTE PROCEDURE public.sync_user_profile();

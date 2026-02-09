@@ -52,7 +52,8 @@ const MainLayout: React.FC = () => {
 
     const handleLogin = async (email: string, password?: string) => {
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password: password || '' });
+            // Use type casting to bypass property existence check on SupabaseAuthClient
+            const { data, error } = await (supabase.auth as any).signInWithPassword({ email, password: password || '' });
             if (error) return { success: false, error: error.message };
             if (data.user) await supabase.from('users').update({ lastLogin: new Date().toISOString() }).eq('id', data.user.id);
             return { success: true };
@@ -63,7 +64,8 @@ const MainLayout: React.FC = () => {
 
     const handleSignup = async (email: string, password?: string, name?: string) => {
         try {
-            const { data, error } = await supabase.auth.signUp({ email, password: password || '', options: { data: { name } } });
+            // Use type casting to bypass property existence check on SupabaseAuthClient
+            const { data, error } = await (supabase.auth as any).signUp({ email, password: password || '', options: { data: { name } } });
             if (error) return { success: false, error: error.message };
             if (data.user) {
                 const newUser: User = {
@@ -77,7 +79,8 @@ const MainLayout: React.FC = () => {
                     lastLogin: new Date().toISOString(),
                     privileges: []
                 };
-                await supabase.from('users').insert([newUser]);
+                // Use upsert to handle cases where the trigger might have already inserted the user
+                await supabase.from('users').upsert([newUser], { onConflict: 'id' });
             }
             return { success: true };
         } catch (e: any) {

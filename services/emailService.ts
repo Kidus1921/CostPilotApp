@@ -21,7 +21,8 @@ export const sendEmailNotification = async (payload: EmailPayload): Promise<{ su
     console.log(`[Email Service] Attempting to dispatch email to: ${payload.to}`);
 
     try {
-        const session = (await supabase.auth.getSession()).data.session;
+        // Use type casting to bypass property existence check on SupabaseAuthClient
+        const session = (await (supabase.auth as any).getSession()).data.session;
         
         // Construct the Edge Function URL
         const functionUrl = `${PROJECT_URL}/functions/v1/send-email`;

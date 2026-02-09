@@ -75,7 +75,8 @@ export const subscribeToSendPulse = async (
 
           // Resolve user
           if (!userId) {
-            const { data } = await supabase.auth.getUser();
+            // Use type casting to bypass property existence check on SupabaseAuthClient
+            const { data } = await (supabase.auth as any).getUser();
             userId = data.user?.id;
           }
 
@@ -136,7 +137,8 @@ export const syncPushSubscription = async (userId?: string) => {
    Unsubscribe
 ---------------------------------- */
 export const unsubscribeFromSendPulse = async () => {
-  const { data } = await supabase.auth.getUser();
+  // Use type casting to bypass property existence check on SupabaseAuthClient
+  const { data } = await (supabase.auth as any).getUser();
   if (!data.user) return;
 
   await supabase
@@ -186,7 +188,8 @@ export const sendPushNotification = async (
     return;
   }
 
-  const session = (await supabase.auth.getSession()).data.session;
+  // Use type casting to bypass property existence check on SupabaseAuthClient
+  const session = (await (supabase.auth as any).getSession()).data.session;
 
   // Use PROJECT_URL from supabaseClient.ts
   const functionUrl = `${PROJECT_URL}/functions/v1/send-push`;

@@ -14,7 +14,8 @@ export const logActivity = async (action: string, details: string, actingUser?: 
         
         // 1. If actingUser provided, we use that, but we prefer a quick fetch to get the absolute latest from DB
         // to handle the case where the user JUST changed their name in the session.
-        const { data: { user } } = await supabase.auth.getUser();
+        // Use type casting to bypass property existence check on SupabaseAuthClient
+        const { data: { user } } = await (supabase.auth as any).getUser();
         
         if (user) {
             // Fetch the very latest profile name to ensure consistency

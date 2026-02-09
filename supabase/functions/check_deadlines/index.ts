@@ -1,12 +1,7 @@
-// Follow this setup guide to deploy: https://supabase.com/docs/guides/functions
-// 1. supabase functions new check_deadlines
-// 2. Paste this code into index.ts
-// 3. supabase functions deploy check_deadlines
-// 4. Set up a Cron trigger in Supabase Dashboard to run this function every 12 hours.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
-// Declare Deno to fix TypeScript errors in environments where Deno types are missing
+// Declare Deno to fix TypeScript errors in non-Deno environments
 declare const Deno: any;
 
 const corsHeaders = {
@@ -25,23 +20,24 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    console.log("Running deadline checks...")
+    console.log("[Deadline Checker] Initiating scan...");
 
     const { data: projects, error } = await supabaseClient
       .from('projects')
-      .select('*, teamLeader:users!teamLeader(id, email, name)')
+      .select('*, teamLeader')
       .neq('status', 'Completed')
       .neq('status', 'Rejected')
 
     if (error) throw error
 
     const now = new Date()
-    let notificationsSent = 0
+    now.setHours(0,0,0,0)
     
-    const projectsList = projects || [];
+    let notificationsCreated = 0
+    const notificationsToInsert = []
 
-    for (const project of projectsList) {
-        if (!project.endDate) continue
+    for (const project of (projects || [])) {
+        if (!project.endDate || !project.teamLeader?.id) continue
         
         const endDate = new Date(project.endDate)
         const diffTime = endDate.getTime() - now.getTime()
@@ -53,47 +49,43 @@ Deno.serve(async (req: Request) => {
 
         if (diffDays < 0) {
             title = '🚨 Project Overdue'
-            message = `Project "${project.title}" is overdue.`
+            message = `Critical: Project "${project.title}" has exceeded its terminal date.`
             priority = 'Critical'
         } else if (diffDays === 0) {
-            title = '⏰ Project Due Today'
-            message = `Project "${project.title}" is due today.`
+            title = '⏰ Due Today'
+            message = `Attention: Project "${project.title}" is scheduled for closure today.`
             priority = 'High'
         } else if (diffDays <= 3 && diffDays > 0) {
-            title = '⏳ Upcoming Deadline'
-            message = `Project "${project.title}" due in ${diffDays} days.`
+            title = '⏳ Approaching Deadline'
+            message = `Notice: Project "${project.title}" is due in ${diffDays} days.`
             priority = 'High'
         }
 
-        if (title && project.teamLeader?.id) {
-            // 1. Insert into Notifications Table
-            await supabaseClient.from('notifications').insert({
+        if (title) {
+            notificationsToInsert.push({
                 userId: project.teamLeader.id,
                 title,
                 message,
                 type: 'Deadline',
                 priority,
                 isRead: false,
+                link: `/projects/${project.id}`,
                 timestamp: new Date().toISOString()
             })
-
-            // 2. Send Push Notification via SendPulse API
-            // Note: You need to set SENDPULSE_ID and SENDPULSE_SECRET in Supabase Secrets
-            const spId = Deno.env.get('SENDPULSE_ID')
-            const spSecret = Deno.env.get('SENDPULSE_SECRET')
-            
-            if (spId && spSecret) {
-                // Logic to authenticate and send to SendPulse would go here
-                // This usually requires getting a token first, then POSTing to /push/tasks
-                console.log(`[SendPulse] Would send push to user ${project.teamLeader.id}`)
-            }
-            
-            notificationsSent++
+            notificationsCreated++
         }
     }
 
+    if (notificationsToInsert.length > 0) {
+      const { error: insertError } = await supabaseClient
+        .from('notifications')
+        .insert(notificationsToInsert)
+      
+      if (insertError) console.error("[Deadline Checker] Batch insert failed:", insertError)
+    }
+
     return new Response(
-      JSON.stringify({ success: true, notificationsSent }),
+      JSON.stringify({ success: true, notificationsCreated, scanned: projects?.length || 0 }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
