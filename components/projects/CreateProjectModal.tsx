@@ -16,7 +16,7 @@ export interface NewProjectData {
 interface CreateProjectModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (data: NewProjectData) => void;
+    onSave: (data: NewProjectData) => Promise<void>;
     users: User[];
     initialData?: Project;
 }
@@ -72,24 +72,29 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
         e.preventDefault();
         const teamLeader = users.find(u => u.id === teamLeaderId);
         if (!title || !endDate || !teamLeader) {
-            alert('Please fill all required fields.');
+            alert('Operational Requirement: Project Identifier, Terminal Date, and Lead Authority are mandatory.');
             return;
         }
 
         setIsSaving(true);
-        const memberIdsSet = new Set<string>(selectedMemberIds);
-        selectedTeamIds.forEach(tId => {
-            const team = teams.find(t => t.id === tId);
-            team?.memberIds?.forEach(mId => memberIdsSet.add(mId));
-        });
-        memberIdsSet.add(teamLeaderId);
+        try {
+            const memberIdsSet = new Set<string>(selectedMemberIds);
+            selectedTeamIds.forEach(tId => {
+                const team = teams.find(t => t.id === tId);
+                team?.memberIds?.forEach(mId => memberIdsSet.add(mId));
+            });
+            memberIdsSet.add(teamLeaderId);
 
-        const finalTeam = Array.from(memberIdsSet).map(id => users.find(u => u.id === id)).filter((u): u is User => !!u);
-        const tagsArray = tags.split(',').map(t => t.trim()).filter(Boolean);
+            const finalTeam = Array.from(memberIdsSet).map(id => users.find(u => u.id === id)).filter((u): u is User => !!u);
+            const tagsArray = tags.split(',').map(t => t.trim()).filter(Boolean);
 
-        setTimeout(() => {
-            onSave({ title, description, endDate, teamLeader, team: finalTeam, tags: tagsArray, budget });
-        }, 1500);
+            await onSave({ title, description, endDate, teamLeader, team: finalTeam, tags: tagsArray, budget });
+            // Close logic is handled in the parent component's onSave successful resolution
+        } catch (err: any) {
+            console.error("Project Sync Error:", err);
+            alert(`Registry Fault: ${err.message || "Database rejected the synchronization request."}`);
+            setIsSaving(false);
+        }
     };
 
     const previewTags = tags.split(',').map(t => t.trim()).filter(Boolean);
@@ -104,7 +109,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
                     <h2 className="text-2xl font-bold text-base-content dark:text-white uppercase tracking-tighter">
                         {initialData ? 'Update Project' : 'Create Project'}
                     </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-base-content dark:hover:text-white text-3xl leading-none">&times;</button>
+                    <button onClick={onClose} disabled={isSaving} className="text-gray-400 hover:text-base-content dark:hover:text-white text-3xl leading-none disabled:opacity-30">&times;</button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
@@ -167,9 +172,17 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ isOpen, onClose
                         </div>
                     </div>
                     <div className="flex justify-end gap-3 pt-6 border-t border-base-200 dark:border-white/5">
-                        <button type="button" onClick={onClose} disabled={isSaving} className="px-6 py-3 text-gray-500 font-bold text-xs uppercase tracking-widest">Cancel</button>
-                        <button type="submit" disabled={isSaving} className="px-10 py-3 bg-brand-primary text-brand-primary-content font-bold rounded-xl shadow-lg hover:brightness-110 transition-all text-xs uppercase tracking-widest min-w-[160px]">
-                            {isSaving ? 'Syncing...' : (initialData ? 'Update' : 'Create')}
+                        <button type="button" onClick={onClose} disabled={isSaving} className="px-6 py-3 text-gray-500 font-bold text-xs uppercase tracking-widest hover:text-brand-tertiary transition-colors disabled:opacity-30">Cancel</button>
+                        <button type="submit" disabled={isSaving} className="px-10 py-3 bg-brand-primary text-brand-primary-content font-bold rounded-xl shadow-lg hover:brightness-110 active:scale-95 transition-all text-xs uppercase tracking-widest min-w-[180px]">
+                            {isSaving ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Synchronizing...
+                                </span>
+                            ) : (initialData ? 'Update Scope' : 'Deploy Project')}
                         </button>
                     </div>
                 </form>

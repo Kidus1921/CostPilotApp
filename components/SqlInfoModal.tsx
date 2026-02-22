@@ -6,22 +6,23 @@ interface SqlInfoModalProps {
     onClose: () => void;
 }
 
-const SQL_CODE = `-- --- COSTPILOT: USER REGISTRY RECURSION FIX ---
--- PURPOSE: Atomic Profile Sync & Secure Authority Matrix
+const SQL_CODE = `-- --- COSTPILOT: USER REGISTRY ATOMIC SYNC ---
+-- PURPOSE: Fix Persistence Failure & RLS Recursion
 
--- 1. SECURITY DEFINER GATEKEEPER
--- Prevents RLS infinite loops by querying table as table owner.
+-- 1. HARDEN COLUMN DEFAULTS
+ALTER TABLE public.users ALTER COLUMN "notificationPreferences" SET DEFAULT '{}'::jsonb;
+ALTER TABLE public.users ALTER COLUMN "privileges" SET DEFAULT '{}'::text[];
+
+-- 2. NON-RECURSIVE SECURITY GATEKEEPER
+-- Reads role from JWT metadata to avoid recursive table lookups
 CREATE OR REPLACE FUNCTION public.is_registry_admin()
 RETURNS BOOLEAN AS $$
 BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM public.users
-    WHERE id = auth.uid() AND role = 'Admin'
-  );
+  RETURN (auth.jwt() -> 'user_metadata' ->> 'role') = 'Admin';
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql STABLE;
 
--- 2. RESET & APPLY POLICIES
+-- 3. APPLY POLICIES
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Registry: Public Read" ON public.users;
@@ -35,21 +36,20 @@ CREATE POLICY "Registry: Self Update" ON public.users
 DROP POLICY IF EXISTS "Registry: Admin Authority" ON public.users;
 CREATE POLICY "Registry: Admin Authority" ON public.users
     FOR ALL TO authenticated
-    USING (is_registry_admin())
-    WITH CHECK (is_registry_admin());
+    USING (is_registry_admin());
 
--- 3. IDENTITY SYNC TRIGGER
+-- 4. ROBUST IDENTITY SYNC TRIGGER
 CREATE OR REPLACE FUNCTION public.sync_user_profile()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.users (id, name, email, role, status, active)
+  INSERT INTO public.users (id, name, email, role, "notificationPreferences", privileges)
   VALUES (
     new.id,
-    COALESCE(new.raw_user_meta_data->>'name', 'New Agent'),
+    COALESCE(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
     new.email,
-    'Project Manager', 
-    'Active',
-    true
+    COALESCE(new.raw_user_meta_data->>'role', 'Project Manager'),
+    '{}'::jsonb,
+    '{}'::text[]
   ) ON CONFLICT (id) DO NOTHING;
   RETURN new;
 END;

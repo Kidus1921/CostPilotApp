@@ -1,150 +1,165 @@
 
 import React, { useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import { supabase, PROJECT_URL, PUBLISHABLE_KEY } from '../supabaseClient';
-import { User, UserRole, UserStatus, NotificationType, NotificationPriority } from '../types';
+import { supabase } from '../supabaseClient';
+import { User, UserRole, NotificationType, NotificationPriority } from '../types';
 import { useAppContext } from '../AppContext';
 import UserModal from './UserModal';
-import { PlusIcon } from './IconComponents';
+import { PlusIcon, PencilIcon, TrashIcon, UserGroupIcon } from './IconComponents';
 import { logActivity } from '../services/activityLogger';
 import { createNotification } from '../services/notificationService';
 
+const CREATE_USER_FUNCTION_URL = "https://vgubtzdnimaguwaqzlpa.supabase.co/functions/v1/create-user";
+
 const RoleBadge: React.FC<{ role: UserRole }> = ({ role }) => {
-    const map = { 
-        [UserRole.Admin]: 'bg-brand-tertiary/10 text-brand-tertiary border border-brand-tertiary/20', 
-        [UserRole.ProjectManager]: 'bg-brand-primary/10 text-brand-primary border border-brand-primary/20', 
-        [UserRole.Finance]: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' 
-    };
-    return <span className={`px-3 py-1 inline-flex text-[10px] font-black uppercase tracking-widest rounded-full border ${map[role]}`}>{role}</span>;
+  const map = {
+    [UserRole.Admin]: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-red-200',
+    [UserRole.ProjectManager]: 'bg-brand-primary/10 text-brand-primary border-brand-primary/20',
+    [UserRole.Finance]: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200',
+  };
+
+  return (
+    <span className={`px-2.5 py-1 inline-flex text-[10px] font-bold uppercase tracking-wider rounded-full border ${map[role]}`}>
+      {role}
+    </span>
+  );
 };
 
 const UsersTab: React.FC = () => {
-    const { users, teams, refreshData } = useAppContext();
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingUser, setEditingUser] = useState<User | null>(null);
+  const { users, teams, refreshData } = useAppContext();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
-    const handleSave = async (user: User, password?: string) => {
-        try {
-            const safeData = { ...user, teamId: user.teamId || null }; 
+  const handleSave = async (user: User, password?: string) => {
+    try {
+      if (user.id) {
+        // Update existing via direct DB call (RLS allowing)
+        // Fix: Removed 'password' from destructuring as it does not exist on the User type. 
+        // We also cast to any to ensure we can flexibly exclude specific fields from the update payload.
+        const { id, email: __, ...updatePayload } = user as any;
+        const { error } = await supabase.from('users').update(updatePayload).eq('id', id);
+        if (error) throw error;
+        logActivity('Registry Sync', `Updated credentials for ${user.name}`);
+      } else {
+        // Deploy new via Edge Function
+        const sessionRes = await supabase.auth.getSession();
+        const session = sessionRes.data.session;
+        if (!session) throw new Error('Authorization expired.');
 
-            if (safeData.id) {
-                // UPDATE PROTOCOL
-                const { id, password: _, email: __, ...updatePayload } = safeData;
-                const { error: profileError } = await supabase
-                    .from('users')
-                    .update(updatePayload)
-                    .eq('id', id);
-                
-                if (profileError) throw profileError;
-                logActivity('User Registry Sync', user.name);
-            } else {
-                // ENROLLMENT PROTOCOL
-                // Initialize Auth with role in metadata to support JWT RLS
-                const tempClient = createClient(PROJECT_URL, PUBLISHABLE_KEY, { 
-                    auth: { persistSession: false, autoRefreshToken: false } 
-                });
-                
-                const { data: authData, error: authError } = await (tempClient.auth as any).signUp({ 
-                    email: user.email, 
-                    password: password || 'TempPass_123_@CostPilot', 
-                    options: { 
-                        data: { 
-                            name: user.name,
-                            role: user.role // CRITICAL: This enables the JWT-based RLS check
-                        } 
-                    } 
-                });
-                
-                if (authError || !authData.user) {
-                    throw new Error(authError?.message || "Authentication Gateway Rejection");
-                }
-                
-                // Commit Profile Data (excluding password)
-                const { id: _, password: __, ...profileData } = safeData;
-                
-                const { error: upsertError } = await supabase
-                    .from('users')
-                    .upsert({
-                        ...profileData,
-                        id: authData.user.id,
-                        email: authData.user.email
-                    }, { onConflict: 'id' });
-                
-                if (upsertError) {
-                    throw new Error(`Registry Write Error: ${upsertError.message}`);
-                }
+        const res = await fetch(CREATE_USER_FUNCTION_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            email: user.email,
+            password: password || 'TempAuth_123!',
+            name: user.name,
+            role: user.role,
+            teamId: user.teamId || null,
+            phone: user.phone || null
+          }),
+        });
 
-                logActivity('Registry Enrollment', user.name);
-                await createNotification({ 
-                    userId: authData.user.id, 
-                    title: 'Security Clearance Granted', 
-                    message: 'Personnel file initialized. Registry entry successfully committed.', 
-                    type: NotificationType.System, 
-                    priority: NotificationPriority.Medium 
-                });
-            }
-            setIsModalOpen(false);
-            setEditingUser(null);
-            refreshData();
-        } catch (e: any) { 
-            console.error("Registry Persistence Failure:", e);
-            alert(`Registry Fault: ${e.message || 'Database rejected the synchronization request.'}`); 
-        }
-    };
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || 'Registry rejection.');
 
-    const handleDelete = async (u: User) => {
-        if (!confirm(`CRITICAL: Purge agent ${u.name} from operational registry? This action is permanent.`)) return;
-        try {
-            const { error } = await supabase.from('users').delete().eq('id', u.id);
-            if (error) throw error;
-            logActivity('Agent Decommissioned', u.name);
-            refreshData();
-        } catch (e: any) { alert("Decommissioning Protocol Failure: " + e.message); }
-    };
+        logActivity('Agent Deployment', user.name);
+      }
 
-    return (
-        <div className="animate-fadeIn">
-            <div className="flex justify-end mb-10">
-                <button onClick={() => { setEditingUser(null); setIsModalOpen(true); }} className="bg-brand-primary text-white font-black py-4 px-12 rounded-[2rem] flex items-center shadow-[0_20px_40px_-10px_rgba(211,162,0,0.3)] hover:brightness-110 active:scale-95 transition-all uppercase text-[10px] tracking-[0.3em]">
-                    <PlusIcon className="w-5 h-5 mr-3"/> Enroll New Agent
-                </button>
-            </div>
-            
-            <div className="bg-base-100 rounded-[2.5rem] shadow-2xl overflow-hidden dark:bg-[#111111] border border-base-300 dark:border-white/10">
-                <table className="min-w-full divide-y divide-base-200 dark:divide-gray-700">
-                    <thead className="bg-base-200/50 dark:bg-gray-700/50">
-                        <tr>
-                            <th className="px-10 py-7 text-left text-[11px] font-black text-gray-500 uppercase tracking-[0.2em] dark:text-gray-400">Agent Identity</th>
-                            <th className="px-10 py-7 text-left text-[11px] font-black text-gray-500 uppercase tracking-[0.2em] dark:text-gray-400">Access Tier</th>
-                            <th className="px-10 py-7 text-left text-[11px] font-black text-gray-500 uppercase tracking-[0.2em] dark:text-gray-400">Unit Assignment</th>
-                            <th className="relative px-10 py-7"><span className="sr-only">Actions</span></th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-base-200 dark:divide-white/5">
-                        {users.map(u => (
-                            <tr key={u.id} className="hover:bg-base-200/30 dark:hover:bg-white/[0.02] transition-all group">
-                                <td className="px-10 py-6 whitespace-nowrap">
-                                    <div className="font-black text-gray-900 dark:text-gray-100 group-hover:text-brand-primary transition-colors text-base tracking-tighter uppercase">{u.name}</div>
-                                    <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest">{u.email}</div>
-                                </td>
-                                <td className="px-10 py-6"><RoleBadge role={u.role}/></td>
-                                <td className="px-10 py-6 text-xs font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest">
-                                    {teams.find(t => t.id === u.teamId)?.name || <span className="opacity-20 italic">Independent</span>}
-                                </td>
-                                <td className="px-10 py-6 text-right text-[10px] font-black uppercase tracking-[0.3em]">
-                                    <div className="flex justify-end gap-8">
-                                        <button onClick={() => { setEditingUser(u); setIsModalOpen(true); }} className="text-gray-400 hover:text-brand-primary transition-all">Modify</button>
-                                        <button onClick={() => handleDelete(u)} className="text-gray-400 hover:text-brand-tertiary transition-all">Purge</button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-            {isModalOpen && <UserModal user={editingUser} teams={teams} onClose={() => setIsModalOpen(false)} onSave={handleSave} />}
+      setIsModalOpen(false);
+      setEditingUser(null);
+      refreshData();
+    } catch (e: any) {
+      console.error('Unified Registry Write Fault:', e);
+      alert(`Fault: ${e.message || 'The system identity registry rejected the sync request.'}`);
+    }
+  };
+
+  const handleDelete = async (u: User) => {
+    if (!confirm(`Purge agent "${u.name}"? Action is permanent.`)) return;
+    try {
+      const { error } = await supabase.from('users').delete().eq('id', u.id);
+      if (error) throw error;
+      logActivity('Registry Purge', u.name);
+      refreshData();
+    } catch (e: any) {
+      alert('Purge Failure: ' + e.message);
+    }
+  };
+
+  return (
+    <div className="animate-fadeIn">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tighter">Identity Registry</h3>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Operational Authority Roster</p>
         </div>
-    );
+        <button
+          onClick={() => { setEditingUser(null); setIsModalOpen(true); }}
+          className="bg-brand-primary text-white font-bold py-3 px-8 rounded-xl flex items-center shadow-lg hover:brightness-110 active:scale-95 transition-all text-[10px] uppercase tracking-widest"
+        >
+          <PlusIcon className="w-4 h-4 mr-2" /> Deploy Agent
+        </button>
+      </div>
+
+      <div className="bg-base-100 rounded-2xl shadow-sm border border-base-300 dark:bg-[#111111] dark:border-white/10 overflow-hidden">
+        <table className="min-w-full divide-y divide-base-200 dark:divide-white/5">
+          <thead className="bg-base-200/50 dark:bg-gray-800/50">
+            <tr>
+              <th className="px-6 py-5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest dark:text-gray-400">Agent Identifier</th>
+              <th className="px-6 py-5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest dark:text-gray-400">Authority Role</th>
+              <th className="px-6 py-5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest dark:text-gray-400">Functional Unit</th>
+              <th className="px-6 py-5 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest dark:text-gray-400">Control</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-base-200 dark:divide-white/5">
+            {users.map((u) => (
+              <tr key={u.id} className="hover:bg-base-200/30 dark:hover:bg-white/[0.02] transition-all group">
+                <td className="px-6 py-5 whitespace-nowrap">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-brand-primary/10 flex items-center justify-center font-bold text-brand-primary uppercase">
+                        {u.name.charAt(0)}
+                    </div>
+                    <div>
+                        <div className="font-bold text-gray-900 dark:text-gray-100 text-sm">{u.name}</div>
+                        <div className="text-[10px] text-gray-400 uppercase font-bold tracking-tight">{u.email}</div>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-6 py-5 align-middle"><RoleBadge role={u.role} /></td>
+                <td className="px-6 py-5 align-middle">
+                    <div className="flex items-center gap-2 text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                        <UserGroupIcon className="w-4 h-4 opacity-30" />
+                        {teams.find((t) => t.id === u.teamId)?.name || <span className="opacity-30 italic font-normal">Independent</span>}
+                    </div>
+                </td>
+                <td className="px-6 py-5 text-right align-middle">
+                  <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => { setEditingUser(u); setIsModalOpen(true); }} className="p-2 text-gray-400 hover:text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-all">
+                      <PencilIcon className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleDelete(u)} className="p-2 text-gray-400 hover:text-brand-tertiary hover:bg-brand-tertiary/10 rounded-lg transition-all">
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {isModalOpen && (
+        <UserModal
+          user={editingUser}
+          teams={teams}
+          onClose={() => setIsModalOpen(false)}
+          onSave={handleSave}
+        />
+      )}
+    </div>
+  );
 };
 
 export default UsersTab;

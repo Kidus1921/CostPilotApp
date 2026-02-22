@@ -5,7 +5,6 @@ import { Project, ProjectStatus, TaskStatus, UserRole, Task, Document, ExpenseCa
 import { useAppContext } from '../../AppContext';
 import ProjectsTable from './ProjectsTable';
 import CreateProjectModal from './CreateProjectModal';
-// Added RefreshIcon to the import list to resolve the "Cannot find name 'RefreshIcon'" error
 import { 
     ArrowLeftIcon, PlusIcon, FolderIcon, ClockIcon, CheckCircleIcon, 
     FinanceIcon, UserGroupIcon, CalendarIcon, XIcon, PaperclipIcon, 
@@ -369,7 +368,7 @@ const ProjectsPage: React.FC = () => {
                                 </>
                             ) : isRejected ? (
                                 <button onClick={() => setIsEditModalOpen(true)} className="flex items-center gap-2 text-[10px] font-bold bg-brand-primary text-white px-5 py-2 rounded-xl hover:brightness-110 shadow-lg uppercase tracking-widest transition-all">
-                                    <RefreshIcon className={`w-3.5 h-3.5`}/> Resubmit for Approval
+                                    <RefreshIcon className={`w-3.5 h-3.5`}/><span className="ml-1">Resubmit Review</span>
                                 </button>
                             ) : null}
                             {isAdmin && (
@@ -676,7 +675,7 @@ const ProjectsPage: React.FC = () => {
                                                                     type="text" 
                                                                     placeholder="Operational observations / comments..." 
                                                                     value={commentInputs[task.id] || ''}
-                                                                    onChange={e => setCommentInputs({...commentInputs, [task.id]: e.target.value})}
+                                                                    onChange={e => setCommentInputs({...commentInputs, [commentInputs[task.id]]: e.target.value})}
                                                                     className="w-full px-4 py-3 text-xs bg-base-100 dark:bg-[#111111] border border-base-300 dark:border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-green-500/50 font-medium"
                                                                 />
                                                             </div>
@@ -733,11 +732,12 @@ const ProjectsPage: React.FC = () => {
         <div className="space-y-6 animate-fadeIn">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-base-100 dark:bg-[#111111] p-8 rounded-2xl border border-base-300 dark:border-white/10 shadow-sm">
                 <div>
-                    <h2 className="text-3xl font-bold dark:text-white uppercase tracking-tighter">Projects</h2>
+                    <h2 className="text-3xl font-bold dark:text-white uppercase tracking-tighter">Project Registry</h2>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Operational Workspace Inventory</p>
                 </div>
                 {isAdminOrPM && (
                     <button onClick={() => setIsCreateModalOpen(true)} className="bg-brand-primary text-white font-bold py-3.5 px-10 rounded-xl shadow-xl hover:brightness-110 active:scale-95 transition-all uppercase text-[10px] tracking-[0.25em] flex items-center gap-3">
-                        <PlusIcon className="w-4 h-4"/> Add Project
+                        <PlusIcon className="w-4 h-4"/> Initialize Project
                     </button>
                 )}
             </div>
@@ -772,7 +772,9 @@ const ProjectsPage: React.FC = () => {
                         tasks: [], 
                         documents: [] 
                     }]);
-                    if (!error) { 
+                    if (error) {
+                        throw error; // Let CreateProjectModal handle the catch and alert
+                    } else {
                         setIsCreateModalOpen(false); 
                         refreshData(); 
                         logActivity('Scope Initialization', data.title);

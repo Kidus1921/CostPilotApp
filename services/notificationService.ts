@@ -160,19 +160,21 @@ export const runSystemHealthChecks = async () => {
             if (project.endDate) {
                 const endDate = new Date(project.endDate);
                 const diffDays = Math.ceil((endDate.getTime() - now.getTime()) / dayInMs);
+                
+                const teamLeaderId = project.teamLeader?.id || (typeof project.teamLeader === 'string' ? project.teamLeader : null);
 
-                if (diffDays < 0) {
+                if (diffDays < 0 && teamLeaderId) {
                     await createNotification({
-                        userId: project.teamLeader.id,
+                        userId: teamLeaderId,
                         title: 'Operational Alert: Project Overdue',
                         message: `Project "${project.title}" has exceeded its terminal date. Immediate review required.`,
                         type: NotificationType.Deadline,
                         priority: NotificationPriority.Critical,
                         link: projectLink
                     });
-                } else if (diffDays <= 1) {
+                } else if (diffDays <= 1 && teamLeaderId) {
                     await createNotification({
-                        userId: project.teamLeader.id,
+                        userId: teamLeaderId,
                         title: 'Urgent: Deadline Tomorrow',
                         message: `Project "${project.title}" is scheduled for completion tomorrow.`,
                         type: NotificationType.Deadline,
@@ -185,9 +187,11 @@ export const runSystemHealthChecks = async () => {
             const spent = project.spent || 0;
             const budget = project.budget || 0;
             
-            if (spent > budget && budget > 0) {
+            const teamLeaderId = project.teamLeader?.id || (typeof project.teamLeader === 'string' ? project.teamLeader : null);
+
+            if (spent > budget && budget > 0 && teamLeaderId) {
                 await createNotification({
-                    userId: project.teamLeader.id,
+                    userId: teamLeaderId,
                     title: 'Fiscal Alert: Budget Ceiling Exceeded',
                     message: `Actual consumption has exceeded the approved budget for project "${project.title}".`,
                     type: NotificationType.CostOverrun,

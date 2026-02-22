@@ -14,8 +14,12 @@ import { supabase } from './supabaseClient';
 import { runSystemHealthChecks } from './services/notificationService';
 
 const MainLayout: React.FC = () => {
-    const { currentUser, loading, authChecked, setActivePage: setContextPage } = useAppContext();
+    const { currentUser, authChecked, isProcessingAuth, setActivePage: setContextPage } = useAppContext();
     const [activePage, setActivePage] = useState('Dashboard');
+    
+    useEffect(() => {
+        console.log("MainLayout: State Update", { authChecked, isProcessingAuth, hasUser: !!currentUser });
+    }, [authChecked, isProcessingAuth, currentUser]);
     const [subTab, setSubTab] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('theme') as 'light' | 'dark') || 'light');
@@ -37,9 +41,7 @@ const MainLayout: React.FC = () => {
             runSystemHealthChecks();
             hasSyncedRef.current = true;
         }
-        if (!currentUser) {
-            hasSyncedRef.current = false;
-        }
+        if (!currentUser) hasSyncedRef.current = false;
     }, [authChecked, currentUser]);
 
     useEffect(() => {
@@ -51,37 +53,42 @@ const MainLayout: React.FC = () => {
     const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
     const handleLogin = async (email: string, password?: string) => {
+        console.log("Auth: Attempting login for", email);
         try {
-            // Use type casting to bypass property existence check on SupabaseAuthClient
-            const { data, error } = await (supabase.auth as any).signInWithPassword({ email, password: password || '' });
-            if (error) return { success: false, error: error.message };
-            if (data.user) await supabase.from('users').update({ lastLogin: new Date().toISOString() }).eq('id', data.user.id);
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password: password || '' });
+            if (error) {
+                console.error("Auth: Login error", error.message);
+                return { success: false, error: error.message };
+            }
+            
+            if (data.user) {
+                console.log("Auth: Login successful, scheduling lastLogin update...");
+                // Non-blocking update to avoid hanging the UI
+                supabase.from('users')
+                    .update({ lastLogin: new Date().toISOString() })
+                    .eq('id', data.user.id)
+                    .then(({ error: updateError }) => {
+                        if (updateError) console.warn("Auth: lastLogin update failed:", updateError.message);
+                        else console.log("Auth: lastLogin updated");
+                    });
+            }
+            
             return { success: true };
         } catch (e: any) {
+            console.error("Auth: Unexpected login exception", e.message);
             return { success: false, error: e.message };
         }
     };
 
     const handleSignup = async (email: string, password?: string, name?: string) => {
         try {
-            // Use type casting to bypass property existence check on SupabaseAuthClient
-            const { data, error } = await (supabase.auth as any).signUp({ email, password: password || '', options: { data: { name } } });
+            const { data, error } = await supabase.auth.signUp({ 
+                email, 
+                password: password || '', 
+                options: { data: { name, role: UserRole.ProjectManager } } 
+            });
             if (error) return { success: false, error: error.message };
-            if (data.user) {
-                const newUser: User = {
-                    id: data.user.id,
-                    email,
-                    name: name || email.split('@')[0],
-                    role: UserRole.ProjectManager,
-                    status: UserStatus.Active,
-                    phone: '',
-                    teamId: null,
-                    lastLogin: new Date().toISOString(),
-                    privileges: []
-                };
-                // Use upsert to handle cases where the trigger might have already inserted the user
-                await supabase.from('users').upsert([newUser], { onConflict: 'id' });
-            }
+            // Note: DB insert is handled by public.sync_user_registry trigger
             return { success: true };
         } catch (e: any) {
             return { success: false, error: e.message };
@@ -92,7 +99,7 @@ const MainLayout: React.FC = () => {
         const accessMap: Record<string, UserRole[]> = {
             'Dashboard': [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance],
             'Projects': [UserRole.Admin, UserRole.ProjectManager],
-            'Financials': [UserRole.Admin, UserRole.Finance],
+            'Financials': [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance],
             'Notifications': [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance],
             'Settings': [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance],
         };
@@ -105,7 +112,7 @@ const MainLayout: React.FC = () => {
         }
     };
 
-    if (!authChecked || (loading && !currentUser)) return (
+    if (!authChecked) return (
         <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#65081b] font-sans">
             <div className="relative w-16 h-16 mb-6">
                 <div className="absolute inset-0 rounded-full border-4 border-white/10"></div>
@@ -114,7 +121,17 @@ const MainLayout: React.FC = () => {
             </div>
             <div className="text-center">
                 <h1 className="text-xl font-bold text-white tracking-[0.3em] uppercase mb-1">EDFM</h1>
-                <p className="text-white/60 text-[10px] tracking-widest uppercase animate-pulse">System Loading</p>
+                <p className="text-white/60 text-[10px] tracking-widest uppercase animate-pulse mb-4">
+                    {isProcessingAuth ? 'Synchronizing Profile' : 'System Loading'}
+                </p>
+                
+                {/* Fallback button if stuck */}
+                <button 
+                    onClick={() => window.location.reload()}
+                    className="mt-4 px-4 py-2 bg-white/10 hover:bg-white/20 text-white/40 hover:text-white/80 text-[10px] uppercase tracking-widest rounded-lg transition-all border border-white/5"
+                >
+                    Reload System
+                </button>
             </div>
         </div>
     );

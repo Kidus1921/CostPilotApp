@@ -24,12 +24,12 @@ interface AppContextType {
   notifications: Notification[];
   loading: boolean;
   authChecked: boolean;
+  isProcessingAuth: boolean;
   refreshData: () => Promise<void>;
   setCurrentUser: (user: User | null) => void;
   logout: () => Promise<void>;
   isAdmin: boolean;
   checkPermission: (permissionId: string) => boolean;
-  // Added setActivePage to context to fix navigation issues in nested components
   setActivePage: (page: string, subTab?: string) => void;
 }
 
@@ -46,17 +46,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   
   const [loading, setLoading] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
-  
-  // Track active page in context
-  const [activePage, setActivePageState] = useState('Dashboard');
-  const [activeSubTab, setActiveSubTab] = useState('');
+  const [isProcessingAuth, setIsProcessingAuth] = useState(false);
 
   const isAdmin = currentUser?.role === UserRole.Admin;
 
   const setActivePage = (page: string, subTab?: string) => {
-    setActivePageState(page);
-    setActiveSubTab(subTab || '');
-    // Dispatch a custom event to notify listeners (MainLayout) of page change
     window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page, subTab } }));
   };
 
@@ -84,79 +78,178 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       return { ...p, spent, completionPercentage };
     });
 
-  const fetchUserProfile = async (userId: string) => {
+  const fetchUserProfile = async (userId: string, authUser?: any): Promise<User | null> => {
     try {
-      const { data, error } = await supabase
+      console.log("Auth: Fetching profile for", userId);
+      
+      // Use provided authUser or fetch if missing
+      let userToUse = authUser;
+      if (!userToUse) {
+        const { data } = await supabase.auth.getUser();
+        userToUse = data.user;
+      }
+
+      if (!userToUse) {
+        console.warn("Auth: No auth user found during profile fetch");
+        return null;
+      }
+
+      const fallbackUser: User = {
+        id: userId,
+        email: userToUse.email || '',
+        name: userToUse.user_metadata?.name || userToUse.email?.split('@')[0] || 'Unknown',
+        role: (userToUse.user_metadata?.role as UserRole) || UserRole.ProjectManager,
+        status: UserStatus.Active,
+        phone: '',
+        lastLogin: new Date().toISOString(),
+        privileges: [],
+        teamId: null,
+        notificationPreferences: {}
+      };
+
+      // Try to get from DB with a shorter timeout
+      console.log("Auth: Querying 'users' table...");
+      
+      // Use a race to implement a per-query timeout
+      const queryPromise = supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
 
-      if (error) throw error;
+      const timeoutPromise = new Promise<null>((_, reject) => 
+        setTimeout(() => reject(new Error("Query Timeout")), 5000)
+      );
 
-      let user: User;
-      if (data) {
-        user = {
-          ...data,
-          role: Object.values(UserRole).includes(data.role)
-            ? data.role
-            : UserRole.ProjectManager,
-          teamId: data.teamId ?? null,
-          privileges: data.privileges ?? [],
-        };
-      } else {
-        // Use type casting to bypass property existence check on SupabaseAuthClient
-        const { data: { user: authUser } } = await (supabase.auth as any).getUser();
-        if (!authUser) return;
-
-        user = {
-          id: userId,
-          email: authUser.email || '',
-          name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'New User',
-          role: UserRole.ProjectManager,
-          status: UserStatus.Active,
-          phone: '',
-          lastLogin: new Date().toISOString(),
-          privileges: [],
-          teamId: null,
-        };
-        // Use upsert to handle race condition with the database trigger
-        await supabase.from('users').upsert([user], { onConflict: 'id' });
+      let dbData = null;
+      try {
+        const result = await Promise.race([queryPromise, timeoutPromise]) as any;
+        if (result.error) {
+          console.warn('Auth: DB Profile fetch error:', result.error.message);
+        } else {
+          dbData = result.data;
+        }
+      } catch (err) {
+        console.warn('Auth: Profile query timed out or failed:', err);
       }
 
-      setCurrentUser(user);
+      if (dbData) {
+        console.log("Auth: Profile found in DB");
+        return {
+          id: dbData.id,
+          name: dbData.name,
+          email: dbData.email,
+          phone: dbData.phone || '',
+          role: dbData.role as UserRole,
+          status: dbData.status as UserStatus,
+          teamId: dbData.teamId || null,
+          notificationPreferences: dbData.notificationPreferences || {},
+          privileges: dbData.privileges || [],
+          lastLogin: dbData.lastLogin,
+        } as User;
+      } else {
+        console.log("Auth: Profile not found in DB, using fallback and attempting sync");
+        
+        // Attempt to sync in background
+        supabase.from('users').upsert([fallbackUser], { onConflict: 'id' })
+          .then(({ error }) => {
+            if (error) console.warn('Auth: Background sync failed:', error.message);
+            else console.log('Auth: Background sync successful');
+          });
+        
+        return fallbackUser;
+      }
     } catch (err) {
-      console.error('Profile fetch error:', err);
+      console.error('Auth: Unified Registry Access Error:', err);
+      return null;
     }
   };
 
   useEffect(() => {
     let mounted = true;
 
-    // Use type casting to bypass property existence check on SupabaseAuthClient
-    const { data: authListener } = (supabase.auth as any).onAuthStateChange(
+    const initAuth = async () => {
+      console.log("Auth: Initializing...");
+      
+      // Safety timeout to ensure we don't stay on the loading screen forever
+      const safetyTimeout = setTimeout(() => {
+        if (mounted) {
+          setAuthChecked(prev => {
+            if (!prev) {
+              console.warn("Auth: Safety timeout reached - proceeding to UI");
+              return true;
+            }
+            return prev;
+          });
+          setIsProcessingAuth(false);
+        }
+      }, 15000);
+
+      try {
+        console.log("Auth: Fetching session...");
+        
+        // Remove the race to avoid artificial timeouts, rely on safetyTimeout instead
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error("Auth: Session error", sessionError);
+          // Don't throw, just log and proceed to login
+        }
+
+        if (session?.user && mounted) {
+          console.log("Auth: Session found for user", session.user.id);
+          setIsProcessingAuth(true);
+          try {
+            // Pass the user object directly to avoid redundant network calls
+            const profile = await fetchUserProfile(session.user.id, session.user);
+            if (mounted) {
+              setCurrentUser(profile);
+              console.log("Auth: Profile loaded");
+            }
+          } catch (profileErr) {
+            console.error("Auth: Profile fetch failed", profileErr);
+          } finally {
+            if (mounted) setIsProcessingAuth(false);
+          }
+        } else {
+          console.log("Auth: No session found");
+        }
+      } catch (e) {
+        console.error("Auth: Initialization failure", e);
+      } finally {
+        clearTimeout(safetyTimeout);
+        if (mounted) {
+          console.log("Auth: Initialization complete");
+          setAuthChecked(true);
+          setIsProcessingAuth(false);
+        }
+      }
+    };
+
+    initAuth();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
 
-        try {
-          if (session?.user) {
-            if (!currentUser || currentUser.id !== session.user.id) {
-                setLoading(true);
-                await fetchUserProfile(session.user.id);
+        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+          setIsProcessingAuth(true);
+          try {
+            const profile = await fetchUserProfile(session.user.id, session.user);
+            if (mounted) {
+              setCurrentUser(profile);
             }
-          } else {
+          } finally {
+            if (mounted) setIsProcessingAuth(false);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          if (mounted) {
             setCurrentUser(null);
+            setIsProcessingAuth(false);
             setProjects([]);
             setUsers([]);
             setTeams([]);
             setNotifications([]);
-          }
-        } catch (e) {
-          console.error("Auth listener error:", e);
-        } finally {
-          if (mounted) {
-            setAuthChecked(true);
-            setLoading(false);
           }
         }
       }
@@ -190,19 +283,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         setNotifications(
           n.data.map((x: any) => ({
             ...x,
-            timestamp: x.timestamp
-              ? { toDate: () => new Date(x.timestamp) }
-              : null,
+            timestamp: x.timestamp ? { toDate: () => new Date(x.timestamp) } : null,
           }))
         );
     } catch (err) {
-      console.error('Global data fetch error:', err);
+      console.error('Registry Synchronization Error:', err);
     }
   }, [currentUser]);
 
   useEffect(() => {
     if (!currentUser) return;
     refreshData();
+    
     const channels = [
       supabase.channel('projects').on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, refreshData),
       supabase.channel('users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, refreshData),
@@ -220,14 +312,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const logout = async () => {
     setLoading(true);
     try {
-      // Use type casting to bypass property existence check on SupabaseAuthClient
-      await (supabase.auth as any).signOut();
+      await supabase.auth.signOut();
     } finally {
       setCurrentUser(null);
-      setProjects([]);
-      setUsers([]);
-      setTeams([]);
-      setNotifications([]);
       setLoading(false);
     }
   };
@@ -248,6 +335,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         notifications,
         loading,
         authChecked,
+        isProcessingAuth,
         refreshData,
         setCurrentUser,
         logout,

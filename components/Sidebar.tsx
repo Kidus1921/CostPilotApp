@@ -68,7 +68,7 @@ const NavItem: React.FC<NavItemProps> = ({
       group relative flex items-center transition-all duration-300
       ${mobile
         ? "flex-col justify-center gap-1 flex-1 h-full py-1"
-        : "w-full px-4 py-3 rounded-xl"
+        : "w-full px-3 py-2.5 rounded-xl"
       }
       ${active
         ? mobile
@@ -145,7 +145,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { label: "Dashboard", icon: <DashboardIcon />, roles: [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance] },
     { label: "Projects", icon: <ProjectsIcon />, roles: [UserRole.Admin, UserRole.ProjectManager] },
-    { label: "Financials", icon: <FinanceIcon />, roles: [UserRole.Admin, UserRole.Finance] },
+    { label: "Financials", icon: <FinanceIcon />, roles: [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance] },
     { label: "Notifications", icon: <BellIcon />, roles: [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance] },
     { label: "Settings", icon: <SettingsIcon />, roles: [UserRole.Admin, UserRole.ProjectManager, UserRole.Finance] },
   ].filter(item => currentUser && item.roles.includes(currentUser.role));
@@ -207,16 +207,16 @@ const Sidebar: React.FC<SidebarProps> = ({
           onClick={e => e.stopPropagation()}
         >
           <div className="
-            flex flex-col items-center justify-center py-10
+            flex flex-col items-center justify-center py-8
             bg-transparent border-b border-white/5 flex-shrink-0
           ">
-            <div className="bg-white p-3 rounded-2xl w-24 h-24 flex items-center justify-center shadow-2xl mb-6">
-              <img src={LOGO_URL} alt="CostPilot Logo" className="w-full h-full object-contain" />
+            <div className="bg-white p-2 rounded-xl w-20 h-20 flex items-center justify-center shadow-2xl mb-4">
+              <img src={LOGO_URL} alt="EDFM" className="w-full h-full object-contain" />
             </div>
             
             <div className="text-center px-4">
-              <h1 className="text-[var(--secondary-color)] text-[11px] font-black uppercase tracking-[0.2em] leading-tight">Financial Control</h1>
-              <p className="text-white/40 text-[9px] font-bold uppercase tracking-[0.3em] mt-1">Institutional Portal</p>
+              <h1 className="text-[var(--secondary-color)] text-[10px] font-black uppercase tracking-[0.15em] leading-tight">Financial Control</h1>
+              <p className="text-white/30 text-[8px] font-bold uppercase tracking-[0.25em] mt-0.5">Institutional Portal</p>
             </div>
 
             <button 
@@ -254,26 +254,33 @@ const Sidebar: React.FC<SidebarProps> = ({
         className={`
           hidden md:flex flex-col h-screen
           bg-[var(--bg-surface)] border-r border-white/10
-          transition-all duration-300 flex-shrink-0
-          ${isCollapsed ? "w-24" : "w-72"}
+          transition-all duration-300 ease-in-out flex-shrink-0
+          overflow-hidden
+          ${isCollapsed ? "w-20" : "w-64"}
         `}
       >
-        <div className="
-          py-12 flex flex-col items-center border-b border-white/5
-        ">
-          <div className={`transition-all duration-300 bg-white p-2.5 rounded-2xl flex items-center justify-center shadow-xl ${isCollapsed ? "w-14 h-14" : "w-28 h-28 mb-6"}`}>
-            <img src={LOGO_URL} alt="CostPilot Logo" className="w-full h-full object-contain" />
+        {/* Compact Header */}
+        <div className={`
+          flex flex-col items-center border-b border-white/5 transition-all duration-300
+          ${isCollapsed ? "py-4" : "py-6"}
+        `}>
+          <div className={`
+            transition-all duration-300 bg-white p-1.5 rounded-xl flex items-center justify-center shadow-xl
+            ${isCollapsed ? "w-10 h-10" : "w-16 h-16 mb-3"}
+          `}>
+            <img src={LOGO_URL} alt="EDFM" className="w-full h-full object-contain" />
           </div>
 
           {!isCollapsed && (
             <div className="text-center px-4 animate-fadeIn">
-              <h1 className="text-[var(--secondary-color)] text-[11px] font-black uppercase tracking-[0.2em] leading-tight">Financial Control</h1>
-              <p className="text-white/40 text-[9px] font-bold uppercase tracking-[0.3em] mt-1">Institutional Portal</p>
+              <h1 className="text-[var(--secondary-color)] text-[10px] font-black uppercase tracking-[0.15em] leading-tight">Financial Control</h1>
+              <p className="text-white/30 text-[8px] font-bold uppercase tracking-[0.25em] mt-0.5">Institutional Portal</p>
             </div>
           )}
         </div>
 
-        <nav className="flex-1 px-4 py-8 space-y-2.5 overflow-y-auto overflow-x-hidden">
+        {/* Navigation - Flex-1 to take available space */}
+        <nav className="flex-1 px-3 py-6 flex flex-col justify-center gap-2">
           {navItems.map(item => (
             <NavItem
               key={item.label}
@@ -286,21 +293,27 @@ const Sidebar: React.FC<SidebarProps> = ({
           ))}
         </nav>
 
-        <div className="p-4 border-t border-white/5">
+        {/* Footer / Toggle */}
+        <div className="p-3 border-t border-white/5 bg-black/10">
           <button
             onClick={toggleSidebar}
             className="
               w-full flex items-center justify-center
-              rounded-xl p-3
+              rounded-xl p-2.5
               text-[var(--text-muted)]
-              hover:text-white hover:bg-white/5
-              transition-all
+              hover:text-white hover:bg-white/10
+              transition-all duration-200
             "
           >
             <ArrowLeftIcon
-              className={`w-6 h-6 transition-transform duration-500 ${isCollapsed ? "rotate-180" : ""}`}
+              className={`w-5 h-5 transition-transform duration-500 ${isCollapsed ? "rotate-180" : ""}`}
             />
           </button>
+          {!isCollapsed && (
+            <div className="mt-2 text-[8px] text-center text-white/20 uppercase tracking-[0.3em] font-medium">
+              Operational Registry
+            </div>
+          )}
         </div>
       </div>
     </>

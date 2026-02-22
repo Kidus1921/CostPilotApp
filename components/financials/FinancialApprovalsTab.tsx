@@ -44,53 +44,83 @@ const FinancialApprovalsTab: React.FC = () => {
 
     const handleApprove = async (e: React.MouseEvent, project: Project) => {
         e.stopPropagation(); // Prevent row click (preview)
-        if (!project.id || !project.teamLeader?.id) return;
+        if (!project.id) return;
+        
+        console.log("Approving project:", project.id);
+        
+        // Ensure we have a team leader ID for notification
+        let teamLeaderId = project.teamLeader?.id;
+        
+        // If teamLeader is just a string (ID), use it
+        if (!teamLeaderId && typeof project.teamLeader === 'string') {
+            teamLeaderId = project.teamLeader;
+        }
         
         const { error } = await supabase.from('projects').update({ 
             status: ProjectStatus.InProgress,
-            acceptedAt: new Date().toISOString(),
-            rejectionReason: null // Clear any previous rejection
+            "acceptedAt": new Date().toISOString(),
+            "rejectionReason": null // Clear any previous rejection
         }).eq('id', project.id);
         
         if (error) {
             console.error("Failed to approve project:", error);
+            alert("Approval Failed: " + error.message + ". Ensure you have run the database setup script.");
             return;
         }
 
         logActivity('Approved Project', project.title);
-        createNotification({
-            userId: project.teamLeader.id,
-            title: 'Project Approved',
-            message: `Your project "${project.title}" has been approved and is now in progress.`,
-            type: NotificationType.ApprovalResult,
-            priority: NotificationPriority.High,
-            link: `/projects/${project.id}`
-        });
+        
+        if (teamLeaderId) {
+            createNotification({
+                userId: teamLeaderId,
+                title: 'Project Approved',
+                message: `Your project "${project.title}" has been approved and is now in progress.`,
+                type: NotificationType.ApprovalResult,
+                priority: NotificationPriority.High,
+                link: `/projects/${project.id}`
+            });
+        }
+        
         fetchPendingProjects();
     };
 
     const handleReject = async (project: Project, reason: string) => {
-        if (!project.id || !project.teamLeader?.id) return;
+        if (!project.id) return;
+
+        console.log("Rejecting project:", project.id, "Reason:", reason);
+
+        // Ensure we have a team leader ID for notification
+        let teamLeaderId = project.teamLeader?.id;
+        
+        // If teamLeader is just a string (ID), use it
+        if (!teamLeaderId && typeof project.teamLeader === 'string') {
+            teamLeaderId = project.teamLeader;
+        }
 
         const { error } = await supabase.from('projects').update({ 
             status: ProjectStatus.Rejected,
-            rejectionReason: reason 
+            "rejectionReason": reason 
         }).eq('id', project.id);
 
         if (error) {
              console.error("Failed to reject project:", error);
+             alert("Rejection Failed: " + error.message + ". Ensure you have run the database setup script.");
              return;
         }
 
         logActivity('Rejected Project', `${project.title} for reason: ${reason}`);
-        createNotification({
-            userId: project.teamLeader.id,
-            title: 'Project Rejected',
-            message: `Your project "${project.title}" has been rejected. Reason: ${reason}`,
-            type: NotificationType.ApprovalResult,
-            priority: NotificationPriority.High,
-            link: `/projects/${project.id}`
-        });
+        
+        if (teamLeaderId) {
+            createNotification({
+                userId: teamLeaderId,
+                title: 'Project Rejected',
+                message: `Your project "${project.title}" has been rejected. Reason: ${reason}`,
+                type: NotificationType.ApprovalResult,
+                priority: NotificationPriority.High,
+                link: `/projects/${project.id}`
+            });
+        }
+        
         setProjectToReject(null);
         fetchPendingProjects();
     };

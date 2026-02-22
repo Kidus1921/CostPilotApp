@@ -92,10 +92,14 @@ const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onCl
                                 <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Authority Unit</span>
                             </div>
                             <div className="flex items-center gap-4">
-                                <Avatar name={project.teamLeader?.name || 'Unknown'} size="sm" className="ring-2 ring-brand-primary/20" />
+                                <Avatar name={typeof project.teamLeader === 'object' ? project.teamLeader?.name || 'Unknown' : 'Unknown'} size="sm" className="ring-2 ring-brand-primary/20" />
                                 <div>
-                                    <p className="text-sm font-black dark:text-white leading-tight">{project.teamLeader?.name}</p>
-                                    <p className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">{project.teamLeader?.role || 'PM'}</p>
+                                    <p className="text-sm font-black dark:text-white leading-tight">
+                                        {typeof project.teamLeader === 'object' ? project.teamLeader?.name : 'ID: ' + project.teamLeader}
+                                    </p>
+                                    <p className="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">
+                                        {typeof project.teamLeader === 'object' ? project.teamLeader?.role || 'PM' : 'Lead Authority'}
+                                    </p>
                                 </div>
                             </div>
                         </div>

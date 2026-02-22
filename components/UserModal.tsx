@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, UserRole, UserStatus, Team } from '../types';
-import { XIcon } from './IconComponents';
+import { XIcon, UserGroupIcon, EnvelopeIcon } from './IconComponents';
 
 interface UserModalProps {
     user: User | null;
@@ -63,15 +63,15 @@ const UserModal: React.FC<UserModalProps> = ({ user, teams, onClose, onSave }) =
         const cleanEmail = formData.email?.trim() || '';
 
         if (!cleanName || !cleanEmail) {
-            alert('Operation Aborted: Identity Name and Email Terminal are required.');
+            alert('Core identifiers (Name and Email) are mandatory.');
             return;
         }
         if (!user && !password) {
-            alert('Security Violation: Operational Security Key is mandatory for new enrollment.');
+            alert('Initial access credential (password) is required.');
             return;
         }
         if (password && password !== confirmPassword) {
-            alert('Validation Error: Security Keys do not match.');
+            alert('Access credential mismatch. Verify and retry.');
             return;
         }
 
@@ -85,88 +85,99 @@ const UserModal: React.FC<UserModalProps> = ({ user, teams, onClose, onSave }) =
             teamId: formData.teamId || null 
         };
 
-        // Correctly pass the password to the enrollment handler
         onSave(dataToSave, password || undefined);
     };
 
-    // HIGH INTENSITY NEGATIVE CONTRAST DESIGN
-    const inputBaseClass = "mt-1 block w-full px-6 py-4 rounded-2xl shadow-xl focus:ring-4 focus:ring-brand-primary/40 focus:scale-[1.01] outline-none transition-all duration-300 border-none font-black text-base uppercase tracking-tighter selection:bg-brand-primary selection:text-white";
-    const themeInputClass = "bg-black text-white dark:bg-white dark:text-black placeholder-gray-500 dark:placeholder-gray-400";
+    const inputBaseClass = "block w-full px-4 py-3 rounded-xl border border-base-300 dark:border-white/10 shadow-inner focus:ring-2 focus:ring-brand-primary outline-none transition-all bg-base-200/50 dark:bg-black/40 text-black dark:text-white sm:text-sm placeholder-gray-400";
+    const labelBaseClass = "block text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-1.5 ml-1";
 
     return (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-2xl z-[150] flex justify-center items-center p-4 animate-fadeIn">
-            <div className="bg-base-100 dark:bg-[#0b0b0b] rounded-[3rem] shadow-[0_60px_120px_-20px_rgba(0,0,0,0.8)] w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col border border-base-300 dark:border-white/10 relative">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex justify-center items-center p-4 animate-fadeIn">
+            <div className="bg-base-100 dark:bg-[#111111] rounded-[2.5rem] shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-base-300 dark:border-white/10 relative">
                 
-                <button 
-                    onClick={onClose} 
-                    className="absolute top-8 right-8 z-[160] p-4 bg-brand-tertiary/10 text-brand-tertiary hover:bg-brand-tertiary hover:text-white transition-all rounded-full shadow-2xl active:scale-90 group"
-                    aria-label="Abort"
-                >
-                    <XIcon className="w-8 h-8 group-hover:rotate-90 transition-transform duration-300" />
+                <button onClick={onClose} className="absolute top-6 right-8 z-[160] p-3 text-gray-400 hover:text-brand-tertiary transition-all rounded-full hover:bg-base-200 dark:hover:bg-white/5 active:scale-90">
+                    <XIcon className="w-8 h-8" />
                 </button>
 
-                <div className="px-12 pt-14 pb-10 border-b border-base-200 dark:border-white/5 bg-base-200/30 dark:bg-white/[0.02]">
-                    <h3 className="text-5xl font-black text-base-content dark:text-white uppercase tracking-tighter italic">
-                        {user ? 'Sync Identity' : 'Enroll Agent'}
+                <div className="px-10 pt-12 pb-8 border-b border-base-200 dark:border-white/5">
+                    <h3 className="text-2xl font-black text-base-content dark:text-white uppercase tracking-tighter">
+                        {user ? 'Edit Agent Profile' : 'Initialize Agent'}
                     </h3>
-                    <p className="text-[11px] font-black text-brand-primary uppercase tracking-[0.4em] mt-4">Operational Registry Portal</p>
+                    <p className="text-[10px] font-bold text-brand-primary uppercase tracking-[0.3em] mt-1">Identity Registry Access</p>
                 </div>
 
-                <form id="user-registry-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-12 space-y-10 custom-scrollbar">
-                    <div className="group">
-                        <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3 ml-2 group-focus-within:text-brand-primary transition-colors">Legal Identifier (Name)</label>
-                        <input type="text" name="name" value={formData.name} onChange={handleChange} className={`${inputBaseClass} ${themeInputClass}`} required placeholder="e.g. CASSIUS LONGINUS" />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-10">
-                        <div className="group">
-                            <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3 ml-2 group-focus-within:text-brand-primary transition-colors">Email Terminal</label>
-                            <input type="email" name="email" value={formData.email} onChange={handleChange} className={`${inputBaseClass} ${themeInputClass}`} required disabled={!!user} placeholder="agent@costpilot.net" />
+                <form id="user-registry-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-10 space-y-8 custom-scrollbar">
+                    {/* Identity Group */}
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-2 mb-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-base-200 dark:border-white/5 pb-2">
+                           Basic Identifier
                         </div>
-                        <div className="group">
-                            <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3 ml-2 group-focus-within:text-brand-primary transition-colors">Comms Frequency (Phone)</label>
-                            <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className={`${inputBaseClass} ${themeInputClass}`} placeholder="+251..." />
+                        <div>
+                            <label className={labelBaseClass}>Full Name</label>
+                            <input type="text" name="name" value={formData.name} onChange={handleChange} className={inputBaseClass} required placeholder="Enter primary identity" />
                         </div>
-                    </div>
-
-                    {!user && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-10 pt-6 border-t border-base-200 dark:border-white/5">
-                            <div className="group">
-                                <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3 ml-2 group-focus-within:text-brand-primary transition-colors">Operational Key</label>
-                                <input type="password" value={password} onChange={e => setPassword(e.target.value)} className={`${inputBaseClass} ${themeInputClass}`} required />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div>
+                                <label className={labelBaseClass}>Email Relay</label>
+                                <input type="email" name="email" value={formData.email} onChange={handleChange} className={`${inputBaseClass} ${!!user ? 'opacity-50 cursor-not-allowed' : ''}`} required disabled={!!user} placeholder="agent@domain.com" />
                             </div>
-                            <div className="group">
-                                <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3 ml-2 group-focus-within:text-brand-primary transition-colors">Verify Key</label>
-                                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className={`${inputBaseClass} ${themeInputClass}`} required />
+                            <div>
+                                <label className={labelBaseClass}>Secure Contact</label>
+                                <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className={inputBaseClass} placeholder="+251 9..." />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Access Credentials Group */}
+                    {!user && (
+                        <div className="space-y-6 pt-6">
+                            <div className="flex items-center gap-2 mb-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-base-200 dark:border-white/5 pb-2">
+                               Initial Access Logic
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div>
+                                    <label className={labelBaseClass}>Entry Key</label>
+                                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} className={inputBaseClass} required placeholder="••••••••" />
+                                </div>
+                                <div>
+                                    <label className={labelBaseClass}>Confirm Key</label>
+                                    <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className={inputBaseClass} required placeholder="••••••••" />
+                                </div>
                             </div>
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-10">
-                        <div className="group">
-                            <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3 ml-2 group-focus-within:text-brand-primary transition-colors">Clearance Tier</label>
-                            <select name="role" value={formData.role} onChange={handleChange} className={`${inputBaseClass} ${themeInputClass} appearance-none cursor-pointer`}>
-                                {Object.values(UserRole).map(r => <option key={r} value={r} className="bg-white text-black dark:bg-black dark:text-white">{r}</option>)}
-                            </select>
+                    {/* Authority Matrix Group */}
+                    <div className="space-y-6 pt-6 pb-4">
+                        <div className="flex items-center gap-2 mb-4 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-base-200 dark:border-white/5 pb-2">
+                            Authority Matrix
                         </div>
-                        <div className="group">
-                            <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3 ml-2 group-focus-within:text-brand-primary transition-colors">Deployment Unit</label>
-                            <select name="teamId" value={formData.teamId || ''} onChange={handleTeamChange} className={`${inputBaseClass} ${themeInputClass} appearance-none cursor-pointer`}>
-                                <option value="" className="bg-white text-black dark:bg-black dark:text-white">Independent / Unassigned</option>
-                                {teams.map(t => <option key={t.id} value={t.id!} className="bg-white text-black dark:bg-black dark:text-white">{t.name}</option>)}
-                            </select>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div>
+                                <label className={labelBaseClass}>Operational Role</label>
+                                <select name="role" value={formData.role} onChange={handleChange} className={`${inputBaseClass} cursor-pointer`}>
+                                    {Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className={labelBaseClass}>Functional Team</label>
+                                <select name="teamId" value={formData.teamId || ''} onChange={handleTeamChange} className={`${inputBaseClass} cursor-pointer`}>
+                                    <option value="">Independent Agent</option>
+                                    {teams.map(t => <option key={t.id} value={t.id!}>{t.name}</option>)}
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </form>
 
-                <div className="px-12 py-10 border-t border-base-200 dark:border-white/5 bg-base-200/40 dark:bg-white/[0.02] flex justify-end gap-8">
-                    <button type="button" onClick={onClose} className="px-8 py-4 text-[11px] font-black uppercase tracking-[0.3em] text-gray-500 hover:text-brand-tertiary transition-colors">Discard</button>
+                <div className="px-10 py-8 border-t border-base-200 dark:border-white/5 bg-base-200/40 dark:bg-white/[0.02] flex justify-end gap-4">
+                    <button type="button" onClick={onClose} className="px-8 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-brand-tertiary transition-colors">Abort</button>
                     <button 
                         form="user-registry-form"
                         type="submit" 
-                        className="px-16 py-5 bg-brand-primary text-white text-[11px] font-black uppercase tracking-[0.4em] rounded-[2rem] shadow-[0_25px_50px_-10px_rgba(211,162,0,0.5)] hover:brightness-110 active:scale-95 transition-all"
+                        className="px-12 py-3.5 bg-brand-primary text-white text-[10px] font-black uppercase tracking-[0.3em] rounded-2xl shadow-xl hover:brightness-110 active:scale-95 transition-all"
                     >
-                        {user ? 'Synchronize' : 'Authorize Enrollment'}
+                        {user ? 'Update Registry' : 'Deploy Agent'}
                     </button>
                 </div>
             </div>

@@ -38,24 +38,23 @@ export interface UserNotificationPreferences {
         system: boolean;
     };
     priorityThreshold: NotificationPriority;
-    projectSubscriptions: string[]; // Array of project IDs
+    projectSubscriptions: string[];
     pushEnabled?: boolean;
     emailEnabled?: boolean;
 }
 
-
 export interface User {
-    id?: string;
+    id: string;
     name: string;
     email: string;
     phone: string;
     role: UserRole;
     status: UserStatus;
-    password?: string;
     teamId?: string | null;
-    notificationPreferences?: UserNotificationPreferences;
+    notificationPreferences?: UserNotificationPreferences | any;
     lastLogin?: string;
-    privileges?: string[]; // List of granular permission keys
+    privileges?: string[];
+    created_at?: string;
 }
 
 export interface Expense {
@@ -87,7 +86,7 @@ export interface Task {
 }
 
 export interface Document {
-    id: string; // Firebase Storage full path
+    id: string;
     name: string;
     url: string;
     type: string;
@@ -111,14 +110,14 @@ export interface Project {
   team: User[];
   tags?: string[];
   status: ProjectStatus;
-  completionPercentage: number; // This will be calculated from tasks
+  completionPercentage: number;
   budget: number;
-  spent: number; // This will be calculated from tasks
+  spent: number;
   tasks: Task[];
   expenses: Expense[];
   rejectionReason?: string;
   documents?: Document[];
-  isAccessEnabled?: boolean; // Controls visibility for non-admins
+  isAccessEnabled?: boolean;
 }
 
 export interface Activity {
@@ -129,11 +128,9 @@ export interface Activity {
     id: string;
     name: string;
   };
-  timestamp: any; // Firestore ServerTimestamp
+  timestamp: any;
 }
 
-
-// User Management Types
 export enum UserRole {
     Admin = 'Admin',
     ProjectManager = 'Project Manager',
@@ -152,7 +149,6 @@ export interface Team {
     memberIds: string[];
 }
 
-// Financial Module Types
 export enum FinancialProjectStatus {
     Pending = 'Pending',
     Approved = 'Approved',
@@ -172,7 +168,7 @@ export interface FinancialTask {
     estimatedCost: number;
     actualCost: number;
     status: FinancialTaskStatus;
-    variance?: number; // Calculated
+    variance?: number;
 }
 
 export interface FinancialProject {
@@ -183,12 +179,10 @@ export interface FinancialProject {
     status: FinancialProjectStatus;
     tasks: FinancialTask[];
     rejectionReason?: string;
-    // Calculated fields
     actualCost?: number;
     remainingBalance?: number;
 }
 
-// Notification Module Types
 export enum NotificationPriority {
     Low = 'Low',
     Medium = 'Medium',
@@ -213,14 +207,13 @@ export interface Notification {
     type: NotificationType;
     priority: NotificationPriority;
     isRead: boolean;
-    timestamp: any; // Firestore ServerTimestamp
-    link?: string; // e.g., `/projects/projectId`
+    timestamp: any;
+    link?: string;
 }
 
-// Push Notification Subscriber
 export interface PushSubscriber {
     userId: string;
-    subscriberId: string; // Service Provider ID or Token
+    subscriberId: string;
     browser: string;
     createdAt: any;
     isEnabled: boolean;
