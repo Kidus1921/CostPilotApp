@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase, PROJECT_URL } from '../supabaseClient';
 import { User, UserRole, NotificationType, NotificationPriority } from '../types';
 import { useAppContext } from '../AppContext';
 import UserModal from './UserModal';
@@ -8,7 +8,8 @@ import { PlusIcon, PencilIcon, TrashIcon, UserGroupIcon } from './IconComponents
 import { logActivity } from '../services/activityLogger';
 import { createNotification } from '../services/notificationService';
 
-const CREATE_USER_FUNCTION_URL = "https://vgubtzdnimaguwaqzlpa.supabase.co/functions/v1/create-user";
+const CREATE_USER_API_URL = '/api/users/create';
+const SYNC_USERS_API_URL = '/api/users/sync';
 
 const RoleBadge: React.FC<{ role: UserRole }> = ({ role }) => {
   const map = {
@@ -28,6 +29,22 @@ const UsersTab: React.FC = () => {
   const { users, teams, refreshData } = useAppContext();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch(SYNC_USERS_API_URL, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Sync failed');
+      alert(`Sync Complete: ${data.syncedCount} users added to registry.`);
+      refreshData();
+    } catch (e: any) {
+      alert('Sync Error: ' + e.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleSave = async (user: User, password?: string) => {
     try {
@@ -36,20 +53,16 @@ const UsersTab: React.FC = () => {
         // Fix: Removed 'password' from destructuring as it does not exist on the User type. 
         // We also cast to any to ensure we can flexibly exclude specific fields from the update payload.
         const { id, email: __, ...updatePayload } = user as any;
+        console.log(`Registry: Syncing update for ${user.name} (ID: ${id}). New Role: ${user.role}`);
         const { error } = await supabase.from('users').update(updatePayload).eq('id', id);
         if (error) throw error;
         logActivity('Registry Sync', `Updated credentials for ${user.name}`);
       } else {
-        // Deploy new via Edge Function
-        const sessionRes = await supabase.auth.getSession();
-        const session = sessionRes.data.session;
-        if (!session) throw new Error('Authorization expired.');
-
-        const res = await fetch(CREATE_USER_FUNCTION_URL, {
+        // Deploy new via Server API
+        const res = await fetch(CREATE_USER_API_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
             email: user.email,
@@ -95,12 +108,21 @@ const UsersTab: React.FC = () => {
           <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tighter">Identity Registry</h3>
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Operational Authority Roster</p>
         </div>
-        <button
-          onClick={() => { setEditingUser(null); setIsModalOpen(true); }}
-          className="bg-brand-primary text-white font-bold py-3 px-8 rounded-xl flex items-center shadow-lg hover:brightness-110 active:scale-95 transition-all text-[10px] uppercase tracking-widest"
-        >
-          <PlusIcon className="w-4 h-4 mr-2" /> Deploy Agent
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={handleSync}
+            disabled={isSyncing}
+            className="bg-white dark:bg-white/5 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 font-bold py-3 px-6 rounded-xl flex items-center shadow-sm hover:bg-gray-50 dark:hover:bg-white/10 disabled:opacity-50 transition-all text-[10px] uppercase tracking-widest"
+          >
+            {isSyncing ? 'Syncing...' : 'Sync Auth Users'}
+          </button>
+          <button
+            onClick={() => { setEditingUser(null); setIsModalOpen(true); }}
+            className="bg-brand-primary text-white font-bold py-3 px-8 rounded-xl flex items-center shadow-lg hover:brightness-110 active:scale-95 transition-all text-[10px] uppercase tracking-widest"
+          >
+            <PlusIcon className="w-4 h-4 mr-2" /> Deploy Agent
+          </button>
+        </div>
       </div>
 
       <div className="bg-base-100 rounded-2xl shadow-sm border border-base-300 dark:bg-[#111111] dark:border-white/10 overflow-hidden">

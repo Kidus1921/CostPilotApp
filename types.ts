@@ -118,6 +118,9 @@ export interface Project {
   rejectionReason?: string;
   documents?: Document[];
   isAccessEnabled?: boolean;
+  assigned_email?: string;
+  notification_sent?: boolean;
+  createdBy?: string;
 }
 
 export interface Activity {

@@ -14,12 +14,9 @@ import { supabase } from './supabaseClient';
 import { runSystemHealthChecks } from './services/notificationService';
 
 const MainLayout: React.FC = () => {
-    const { currentUser, authChecked, isProcessingAuth, setActivePage: setContextPage } = useAppContext();
+    const { currentUser, authChecked, isProcessingAuth, error, isOnline, refreshData, setActivePage: setContextPage, backendStatus } = useAppContext();
     const [activePage, setActivePage] = useState('Dashboard');
     
-    useEffect(() => {
-        console.log("MainLayout: State Update", { authChecked, isProcessingAuth, hasUser: !!currentUser });
-    }, [authChecked, isProcessingAuth, currentUser]);
     const [subTab, setSubTab] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('theme') as 'light' | 'dark') || 'light');
@@ -53,29 +50,24 @@ const MainLayout: React.FC = () => {
     const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
     const handleLogin = async (email: string, password?: string) => {
-        console.log("Auth: Attempting login for", email);
         try {
             const { data, error } = await supabase.auth.signInWithPassword({ email, password: password || '' });
             if (error) {
-                console.error("Auth: Login error", error.message);
                 return { success: false, error: error.message };
             }
             
             if (data.user) {
-                console.log("Auth: Login successful, scheduling lastLogin update...");
                 // Non-blocking update to avoid hanging the UI
                 supabase.from('users')
                     .update({ lastLogin: new Date().toISOString() })
                     .eq('id', data.user.id)
                     .then(({ error: updateError }) => {
-                        if (updateError) console.warn("Auth: lastLogin update failed:", updateError.message);
-                        else console.log("Auth: lastLogin updated");
+                        // Silent update
                     });
             }
             
             return { success: true };
         } catch (e: any) {
-            console.error("Auth: Unexpected login exception", e.message);
             return { success: false, error: e.message };
         }
     };
@@ -85,7 +77,7 @@ const MainLayout: React.FC = () => {
             const { data, error } = await supabase.auth.signUp({ 
                 email, 
                 password: password || '', 
-                options: { data: { name, role: UserRole.ProjectManager } } 
+                options: { data: { name } } 
             });
             if (error) return { success: false, error: error.message };
             // Note: DB insert is handled by public.sync_user_registry trigger
@@ -166,6 +158,48 @@ const MainLayout: React.FC = () => {
                     setActivePage={handleSetPage} 
                     onToggleMobileMenu={() => setIsMobileMenuOpen(true)}
                 />
+
+                {/* Global System Alerts */}
+                <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[100] w-full max-w-2xl px-4 pointer-events-none">
+                    <div className="space-y-2">
+                        {backendStatus === 'error' && (
+                            <div className="bg-brand-tertiary text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center justify-between animate-pulse pointer-events-auto border border-white/20">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-2 bg-white rounded-full" />
+                                    <span className="text-xs font-black uppercase tracking-widest">Backend Fault: Supabase or API unreachable</span>
+                                </div>
+                            </div>
+                        )}
+                        {!isOnline && (
+                            <div className="bg-brand-tertiary text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center justify-between animate-bounce pointer-events-auto border border-white/20">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                                    <span className="text-xs font-black uppercase tracking-widest">Offline Mode: Registry Access Suspended</span>
+                                </div>
+                            </div>
+                        )}
+                        {error && (
+                            <div className="bg-brand-tertiary/90 backdrop-blur-md text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center justify-between pointer-events-auto border border-brand-tertiary ring-4 ring-brand-tertiary/20 animate-fadeIn">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2 bg-white/20 rounded-lg">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70 mb-1">Registry Alert</p>
+                                        <p className="text-xs font-bold leading-tight">{error}</p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => refreshData()}
+                                    className="ml-6 px-4 py-2 bg-white text-brand-tertiary text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-gray-100 transition-all shadow-lg active:scale-95"
+                                >
+                                    Retry Sync
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 <main className="flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-4 bg-base-200 dark:bg-[#0b0b0b] pb-24 md:pb-4">
                     <div className="w-full h-full text-black dark:text-gray-100">
                         {renderPage()}

@@ -1,5 +1,5 @@
 
-import { supabase, PROJECT_URL } from '../supabaseClient';
+import { supabase } from '../supabaseClient';
 
 declare global {
   interface Window {
@@ -167,57 +167,4 @@ export const getPushSubscriptionStatus = async (userId: string) => {
         dbLinked,
         subscriberId
     };
-};
-
-/* ----------------------------------
-   Send Push (CALLS BACKEND)
----------------------------------- */
-export const sendPushNotification = async (
-  userId: string,
-  title: string,
-  message: string
-) => {
-  const { data } = await supabase
-    .from("push_subscribers")
-    .select("subscriber_id")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (!data?.subscriber_id) {
-    console.warn("User not subscribed to push notifications");
-    return;
-  }
-
-  // Use type casting to bypass property existence check on SupabaseAuthClient
-  const session = (await (supabase.auth as any).getSession()).data.session;
-
-  // Use PROJECT_URL from supabaseClient.ts
-  const functionUrl = `${PROJECT_URL}/functions/v1/send-push`;
-
-  try {
-      const res = await fetch(functionUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({
-          subscriberId: data.subscriber_id,
-          title,
-          message,
-          url: window.location.origin,
-        }),
-      });
-      if (!res.ok) {
-          const text = await res.text();
-          console.error("Push Function Error:", text);
-      }
-  } catch (error) {
-      console.error("Failed to invoke send-push function:", error);
-  }
-};
-
-// Backwards compatibility alias
-export const sendSendPulseNotification = async (payload: {userId: string, title: string, message: string}) => {
-    return sendPushNotification(payload.userId, payload.title, payload.message);
 };

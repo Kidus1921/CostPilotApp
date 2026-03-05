@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useContext,
@@ -31,6 +30,8 @@ interface AppContextType {
   isAdmin: boolean;
   checkPermission: (permissionId: string) => boolean;
   setActivePage: (page: string, subTab?: string) => void;
+  error: string | null;
+  isOnline: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -43,183 +44,91 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  
   const [loading, setLoading] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [isProcessingAuth, setIsProcessingAuth] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const isAdmin = currentUser?.role === UserRole.Admin;
 
   const setActivePage = (page: string, subTab?: string) => {
-    window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page, subTab } }));
+    window.dispatchEvent(
+      new CustomEvent('app:navigate', { detail: { page, subTab } })
+    );
   };
 
-  const processProjects = (data: any[]): Project[] =>
-    data.map((p) => {
-      const tasks = p.tasks || [];
-      const spent = tasks.reduce(
-        (acc: number, t: any) =>
-          acc + (t.completionDetails?.actualCost || 0),
-        0
-      );
-
-      let completionPercentage = 0;
-      if (tasks.length) {
-        const completed = tasks.filter(
-          (t: any) => t.status === 'Completed'
-        ).length;
-        completionPercentage = Math.round(
-          (completed / tasks.length) * 100
-        );
-      } else if (p.status === 'Completed') {
-        completionPercentage = 100;
-      }
-
-      return { ...p, spent, completionPercentage };
-    });
-
-  const fetchUserProfile = async (userId: string, authUser?: any): Promise<User | null> => {
+  // 🔐 DB-Authoritative Profile Fetch (No Fallback)
+  const fetchUserProfile = async (userId: string): Promise<User | null> => {
     try {
-      console.log("Auth: Fetching profile for", userId);
-      
-      // Use provided authUser or fetch if missing
-      let userToUse = authUser;
-      if (!userToUse) {
-        const { data } = await supabase.auth.getUser();
-        userToUse = data.user;
-      }
-
-      if (!userToUse) {
-        console.warn("Auth: No auth user found during profile fetch");
-        return null;
-      }
-
-      const fallbackUser: User = {
-        id: userId,
-        email: userToUse.email || '',
-        name: userToUse.user_metadata?.name || userToUse.email?.split('@')[0] || 'Unknown',
-        role: (userToUse.user_metadata?.role as UserRole) || UserRole.ProjectManager,
-        status: UserStatus.Active,
-        phone: '',
-        lastLogin: new Date().toISOString(),
-        privileges: [],
-        teamId: null,
-        notificationPreferences: {}
-      };
-
-      // Try to get from DB with a shorter timeout
-      console.log("Auth: Querying 'users' table...");
-      
-      // Use a race to implement a per-query timeout
-      const queryPromise = supabase
+      const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
-        .maybeSingle();
+        .single();
 
-      const timeoutPromise = new Promise<null>((_, reject) => 
-        setTimeout(() => reject(new Error("Query Timeout")), 5000)
-      );
-
-      let dbData = null;
-      try {
-        const result = await Promise.race([queryPromise, timeoutPromise]) as any;
-        if (result.error) {
-          console.warn('Auth: DB Profile fetch error:', result.error.message);
-        } else {
-          dbData = result.data;
-        }
-      } catch (err) {
-        console.warn('Auth: Profile query timed out or failed:', err);
+      if (error || !data) {
+        console.error('Auth: Profile fetch failed:', error?.message);
+        return null;
       }
 
-      if (dbData) {
-        console.log("Auth: Profile found in DB");
-        return {
-          id: dbData.id,
-          name: dbData.name,
-          email: dbData.email,
-          phone: dbData.phone || '',
-          role: dbData.role as UserRole,
-          status: dbData.status as UserStatus,
-          teamId: dbData.teamId || null,
-          notificationPreferences: dbData.notificationPreferences || {},
-          privileges: dbData.privileges || [],
-          lastLogin: dbData.lastLogin,
-        } as User;
-      } else {
-        console.log("Auth: Profile not found in DB, using fallback and attempting sync");
-        
-        // Attempt to sync in background
-        supabase.from('users').upsert([fallbackUser], { onConflict: 'id' })
-          .then(({ error }) => {
-            if (error) console.warn('Auth: Background sync failed:', error.message);
-            else console.log('Auth: Background sync successful');
-          });
-        
-        return fallbackUser;
-      }
+      return {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        phone: data.phone || '',
+        role: data.role as UserRole,
+        status: data.status as UserStatus,
+        teamId: data.teamId || null,
+        notificationPreferences: data.notificationPreferences || {},
+        privileges: data.privileges || [],
+        lastLogin: data.lastLogin,
+      };
     } catch (err) {
-      console.error('Auth: Unified Registry Access Error:', err);
+      console.error('Auth: Unexpected profile error:', err);
       return null;
     }
   };
 
+  // 🔐 Authentication Initialization
   useEffect(() => {
     let mounted = true;
 
     const initAuth = async () => {
-      console.log("Auth: Initializing...");
-      
-      // Safety timeout to ensure we don't stay on the loading screen forever
-      const safetyTimeout = setTimeout(() => {
-        if (mounted) {
-          setAuthChecked(prev => {
-            if (!prev) {
-              console.warn("Auth: Safety timeout reached - proceeding to UI");
-              return true;
-            }
-            return prev;
-          });
-          setIsProcessingAuth(false);
-        }
-      }, 15000);
-
       try {
-        console.log("Auth: Fetching session...");
-        
-        // Remove the race to avoid artificial timeouts, rely on safetyTimeout instead
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error("Auth: Session error", sessionError);
-          // Don't throw, just log and proceed to login
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error('Auth: Session error:', error.message);
+          if (error.message.includes('Refresh Token Not Found') || error.message.includes('invalid refresh token')) {
+            await supabase.auth.signOut();
+            if (mounted) setCurrentUser(null);
+          }
         }
 
         if (session?.user && mounted) {
-          console.log("Auth: Session found for user", session.user.id);
           setIsProcessingAuth(true);
-          try {
-            // Pass the user object directly to avoid redundant network calls
-            const profile = await fetchUserProfile(session.user.id, session.user);
-            if (mounted) {
-              setCurrentUser(profile);
-              console.log("Auth: Profile loaded");
-            }
-          } catch (profileErr) {
-            console.error("Auth: Profile fetch failed", profileErr);
-          } finally {
-            if (mounted) setIsProcessingAuth(false);
+
+          const profile = await fetchUserProfile(session.user.id);
+
+          if (!mounted) return;
+
+          if (profile) {
+            setCurrentUser(profile);
+          } else {
+            await supabase.auth.signOut();
+            setCurrentUser(null);
           }
-        } else {
-          console.log("Auth: No session found");
+
+          setIsProcessingAuth(false);
         }
-      } catch (e) {
-        console.error("Auth: Initialization failure", e);
+      } catch (err) {
+        console.error('Auth: Initialization failure:', err);
       } finally {
-        clearTimeout(safetyTimeout);
         if (mounted) {
-          console.log("Auth: Initialization complete");
           setAuthChecked(true);
           setIsProcessingAuth(false);
         }
@@ -232,25 +141,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       async (event, session) => {
         if (!mounted) return;
 
-        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+        if (event === 'SIGNED_IN' && session?.user) {
           setIsProcessingAuth(true);
-          try {
-            const profile = await fetchUserProfile(session.user.id, session.user);
-            if (mounted) {
-              setCurrentUser(profile);
-            }
-          } finally {
-            if (mounted) setIsProcessingAuth(false);
-          }
-        } else if (event === 'SIGNED_OUT') {
-          if (mounted) {
+
+          const profile = await fetchUserProfile(session.user.id);
+
+          if (!mounted) return;
+
+          if (profile) {
+            setCurrentUser(profile);
+          } else {
+            await supabase.auth.signOut();
             setCurrentUser(null);
-            setIsProcessingAuth(false);
-            setProjects([]);
-            setUsers([]);
-            setTeams([]);
-            setNotifications([]);
           }
+
+          setIsProcessingAuth(false);
+        }
+
+        if (event === 'SIGNED_OUT') {
+          setCurrentUser(null);
+          setProjects([]);
+          setUsers([]);
+          setTeams([]);
+          setNotifications([]);
         }
       }
     );
@@ -261,12 +174,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
+  // 🔄 Data Refresh
   const refreshData = useCallback(async () => {
     if (!currentUser) return;
 
+    setError(null);
+
     try {
       const [p, u, t, n] = await Promise.all([
-        supabase.from('projects').select('*').order('created_at', { ascending: false }),
+        supabase
+          .from('projects')
+          .select('*')
+          .order('created_at', { ascending: false }),
         supabase.from('users').select('*').order('name'),
         supabase.from('teams').select('*').order('name'),
         supabase
@@ -276,35 +195,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           .order('timestamp', { ascending: false }),
       ]);
 
-      if (p.data) setProjects(processProjects(p.data));
+      const errors = [p.error, u.error, t.error, n.error].filter(Boolean);
+      if (errors.length > 0) {
+        setError(errors[0]?.message || 'Unknown synchronization error');
+        return;
+      }
+
+      if (p.data) setProjects(p.data as Project[]);
       if (u.data) setUsers(u.data as User[]);
       if (t.data) setTeams(t.data as Team[]);
       if (n.data)
         setNotifications(
           n.data.map((x: any) => ({
             ...x,
-            timestamp: x.timestamp ? { toDate: () => new Date(x.timestamp) } : null,
+            timestamp: x.timestamp
+              ? { toDate: () => new Date(x.timestamp) }
+              : null,
           }))
         );
-    } catch (err) {
-      console.error('Registry Synchronization Error:', err);
+    } catch (err: any) {
+      console.error('Data synchronization error:', err);
+      setError(err.message || 'Critical synchronization failure');
     }
   }, [currentUser]);
 
   useEffect(() => {
     if (!currentUser) return;
+
     refreshData();
-    
+
     const channels = [
-      supabase.channel('projects').on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, refreshData),
-      supabase.channel('users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, refreshData),
-      supabase.channel('teams').on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, refreshData),
-      supabase.channel('notifs').on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'notifications', filter: `userId=eq.${currentUser.id}` },
-        refreshData
-      ),
+      supabase
+        .channel('projects')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'projects' },
+          refreshData
+        ),
+      supabase
+        .channel('users')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'users' },
+          refreshData
+        ),
+      supabase
+        .channel('teams')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'teams' },
+          refreshData
+        ),
+      supabase
+        .channel('notifs')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'notifications',
+            filter: `userId=eq.${currentUser.id}`,
+          },
+          refreshData
+        ),
     ];
+
     channels.forEach((c) => c.subscribe());
     return () => channels.forEach((c) => supabase.removeChannel(c));
   }, [currentUser, refreshData]);
@@ -325,6 +280,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     return currentUser.privileges?.includes(permissionId) ?? false;
   };
 
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   return (
     <AppContext.Provider
       value={{
@@ -342,6 +308,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         isAdmin,
         checkPermission,
         setActivePage,
+        error,
+        isOnline,
       }}
     >
       {children}
@@ -351,6 +319,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
 export const useAppContext = () => {
   const ctx = useContext(AppContext);
-  if (!ctx) throw new Error('useAppContext must be used within AppProvider');
+  if (!ctx)
+    throw new Error('useAppContext must be used within AppProvider');
   return ctx;
 };

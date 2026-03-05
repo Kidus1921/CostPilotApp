@@ -23,7 +23,7 @@ CREATE TABLE public.teams (
     id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
     name text NOT NULL,
     description text,
-    "memberIds" TEXT[] DEFAULT '{}'::text[],
+    "memberIds" text[] DEFAULT '{}'::text[],
     created_at timestamp with time zone DEFAULT now()
 );
 
@@ -37,7 +37,7 @@ CREATE TABLE public.users (
     "teamId" uuid REFERENCES public.teams(id),
     "notificationPreferences" jsonb DEFAULT '{}'::jsonb,
     "lastLogin" timestamp with time zone,
-    privileges TEXT[] DEFAULT '{}'::text[],
+    privileges text[] DEFAULT '{}'::text[],
     created_at timestamp with time zone DEFAULT now()
 );
 
@@ -74,7 +74,7 @@ CREATE TABLE public.projects (
     "endDate" date,
     "teamLeader" jsonb,
     team jsonb DEFAULT '[]'::jsonb,
-    tags TEXT[] DEFAULT '{}'::text[],
+    tags text[] DEFAULT '{}'::text[],
     status text DEFAULT 'Pending'::text,
     "completionPercentage" numeric DEFAULT 0,
     budget numeric DEFAULT 0,
@@ -84,6 +84,8 @@ CREATE TABLE public.projects (
     documents jsonb DEFAULT '[]'::jsonb,
     "rejectionReason" text,
     "isAccessEnabled" boolean DEFAULT true,
+    "assigned_email" text,
+    "notification_sent" boolean DEFAULT false,
     created_at timestamp with time zone DEFAULT now()
 );
 
@@ -136,14 +138,30 @@ CREATE TABLE public.receipts (
 
 -- RLS Policies
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users: Allow individual read" ON public.users;
-CREATE POLICY "Users: Allow individual read" ON public.users FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Users: Allow read" ON public.users;
+CREATE POLICY "Users: Allow read" ON public.users FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Users: Allow individual update" ON public.users;
-CREATE POLICY "Users: Allow individual update" ON public.users FOR UPDATE TO authenticated USING (auth.uid() = id);
+CREATE POLICY "Users: Allow individual update" ON public.users FOR UPDATE USING (auth.uid() = id);
+DROP POLICY IF EXISTS "Users: Allow individual insert" ON public.users;
+CREATE POLICY "Users: Allow individual insert" ON public.users FOR INSERT WITH CHECK (auth.uid() = id);
 
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Projects: Allow authenticated read" ON public.projects;
-CREATE POLICY "Projects: Allow authenticated read" ON public.projects FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Projects: Allow read" ON public.projects;
+CREATE POLICY "Projects: Allow read" ON public.projects FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Projects: Allow insert" ON public.projects;
+CREATE POLICY "Projects: Allow insert" ON public.projects FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Projects: Allow update" ON public.projects;
+CREATE POLICY "Projects: Allow update" ON public.projects FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Projects: Allow delete" ON public.projects;
+CREATE POLICY "Projects: Allow delete" ON public.projects FOR DELETE USING (true);
+
+ALTER TABLE public.financial_projects ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Financial: Allow read" ON public.financial_projects;
+CREATE POLICY "Financial: Allow read" ON public.financial_projects FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Financial: Allow insert" ON public.financial_projects;
+CREATE POLICY "Financial: Allow insert" ON public.financial_projects FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Financial: Allow update" ON public.financial_projects;
+CREATE POLICY "Financial: Allow update" ON public.financial_projects FOR UPDATE USING (true);
 
 ALTER TABLE public.activities ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Activities: Allow authenticated read" ON public.activities;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Project } from '../../types';
 import { 
     XIcon, CalendarIcon, FinanceIcon, UserGroupIcon, 
@@ -15,9 +15,26 @@ interface ProjectPreviewModalProps {
 }
 
 const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onClose }) => {
+    // Body scroll lock
+    useEffect(() => {
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, []);
+
+    // ESC key handler
+    useEffect(() => {
+        const handleEsc = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [onClose]);
+
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[110] flex justify-center items-center p-4 sm:p-6 animate-fadeIn">
-            <div className="bg-base-100 dark:bg-[#111111] rounded-[2rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] w-full max-w-4xl max-h-[85vh] flex flex-col border border-base-300 dark:border-white/10 overflow-hidden transform animate-scaleUp">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[110] flex justify-center items-center p-4 animate-fadeIn">
+            <div className="bg-base-100 dark:bg-[#111111] rounded-[2rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] w-full max-w-4xl max-h-[90vh] flex flex-col border border-base-300 dark:border-white/10 overflow-hidden transform animate-scaleUp">
                 <style>{`
                     @keyframes scaleUp {
                         from { transform: scale(0.95); opacity: 0; }
@@ -29,7 +46,7 @@ const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onCl
                 `}</style>
                 
                 {/* Header Section */}
-                <div className="p-8 border-b border-base-200 dark:border-white/5 flex justify-between items-center bg-base-200/20 dark:bg-white/[0.02]">
+                <div className="p-8 border-b border-base-200 dark:border-white/5 flex justify-between items-center bg-base-200/20 dark:bg-white/[0.02] shrink-0">
                     <div className="flex items-center gap-5">
                         <div className="p-4 bg-brand-primary/10 rounded-2xl">
                             <FolderIcon className="w-8 h-8 text-brand-primary" />
@@ -147,7 +164,7 @@ const ProjectPreviewModal: React.FC<ProjectPreviewModalProps> = ({ project, onCl
                 </div>
 
                 {/* Footer Section */}
-                <div className="p-8 border-t border-base-200 dark:border-white/5 bg-base-200/30 dark:bg-white/[0.02] flex justify-end">
+                <div className="p-8 border-t border-base-200 dark:border-white/5 bg-base-200/30 dark:bg-white/[0.02] flex justify-end shrink-0">
                     <button 
                         onClick={onClose}
                         className="px-10 py-4 bg-brand-primary text-white text-[11px] font-black uppercase tracking-[0.3em] rounded-2xl shadow-[0_10px_20px_-5px_rgba(211,162,0,0.4)] hover:shadow-none hover:translate-y-0.5 active:scale-95 transition-all"

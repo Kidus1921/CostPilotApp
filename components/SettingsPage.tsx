@@ -6,6 +6,7 @@ import RecentActivity from './RecentActivity';
 import NotificationSettingsTab from './settings/NotificationSettingsTab';
 import ProfileSettingsTab from './settings/ProfileSettingsTab';
 import PrivilegeSettingsTab from './settings/PrivilegeSettingsTab';
+import SystemActionsTab from './settings/SystemActionsTab';
 import { UserRole } from '../types';
 
 interface SettingsPageProps { initialTab?: string; }
@@ -22,13 +23,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ initialTab }) => {
             case 'User Management': return currentUser.role === UserRole.Admin ? <UserManagementPage /> : null;
             case 'Activity Log': return currentUser.role === UserRole.Admin ? <RecentActivity /> : null;
             case 'Privilege Management': return currentUser.role === UserRole.Admin ? <PrivilegeSettingsTab /> : null;
+            case 'System Actions': return currentUser.role === UserRole.Admin ? <SystemActionsTab /> : null;
             case 'Notifications': return <NotificationSettingsTab currentUser={currentUser} />;
             default: return <ProfileSettingsTab currentUser={currentUser} onUserUpdate={setCurrentUser} />;
         }
     };
 
     const TabButton: React.FC<{ name: string }> = ({ name }) => (
-        <button onClick={() => setActiveTab(name)} className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === name ? 'border-brand-primary text-brand-primary' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+        <button onClick={() => setActiveTab(name)} className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${activeTab === name ? 'border-brand-primary text-brand-primary' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             {name}
         </button>
     );
@@ -37,9 +39,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ initialTab }) => {
         <div className="space-y-6">
             <h2 className="text-3xl font-bold dark:text-white">Settings</h2>
             <div className="border-b border-gray-200 dark:border-gray-700">
-                <nav className="-mb-px flex space-x-8 overflow-x-auto">
+                <nav className="-mb-px flex space-x-8 overflow-x-auto scrollbar-hide">
                     <TabButton name="Profile" />
-                    {currentUser.role === UserRole.Admin && <><TabButton name="User Management" /><TabButton name="Activity Log" /><TabButton name="Privilege Management" /></>}
+                    {currentUser.role === UserRole.Admin && (
+                        <>
+                            <TabButton name="User Management" />
+                            <TabButton name="Activity Log" />
+                            <TabButton name="Privilege Management" />
+                            <TabButton name="System Actions" />
+                        </>
+                    )}
                     <TabButton name="Notifications" />
                 </nav>
             </div>

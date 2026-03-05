@@ -1,7 +1,9 @@
 
 import React, { useState } from 'react';
 import { FolderIcon } from './IconComponents';
-const LOGO_URL = "https://vgubtzdnimaguwaqzlpa.supabase.co/storage/v1/object/sign/assets/logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yY2Q0MmM3Yi04YzY0LTQzYzItYTA3OC00YzgzNDMyYzIwYWEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvbG9nby5wbmciLCJpYXQiOjE3NzAwNDgwMjQsImV4cCI6ODY1NzY5OTYxNjI0fQ.xAL26M1UaUbJMK5wdZNBbUdR58vPihBK2hovd7rlg38";
+
+const LOGO_LIGHT = "https://vgubtzdnimaguwaqzlpa.supabase.co/storage/v1/object/sign/assets/ejat.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yY2Q0MmM3Yi04YzY0LTQzYzItYTA3OC00YzgzNDMyYzIwYWEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvZWphdC5wbmciLCJpYXQiOjE3NzIxNzgwMzksImV4cCI6ODY1NzcyMDkxNjM5fQ.mvmh-A4EqIaAlfHVnWsPvVf34Kp96QkNKaECevPb8SU";
+const LOGO_DARK = "https://vgubtzdnimaguwaqzlpa.supabase.co/storage/v1/object/sign/assets/ejat.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yY2Q0MmM3Yi04YzY0LTQzYzItYTA3OC00YzgzNDMyYzIwYWEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvZWphdC5wbmciLCJpYXQiOjE3NzIxNzk1NDgsImV4cCI6ODY1NzcyMDkzMTQ4fQ.LXtNGYK1MeB3UT_eFQaYvz-XyIomyUyBDjDfDeyhC1c";
 
 interface LoginPageProps {
     onLogin: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
@@ -56,7 +58,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup }) => {
             <div className="w-full max-w-md space-y-8 p-10 bg-base-100 dark:bg-gray-800 shadow-xl rounded-2xl">
                 <div>
                     <div className="flex flex-col items-center justify-center">
-                         <img src={LOGO_URL} alt="CostPilot Logo" className="w-20 h-20 object-contain mb-4" />
+                         <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center mb-4 overflow-hidden shadow-sm">
+                            <img src={LOGO_LIGHT} alt="EDFM Logo" className="w-full h-full object-contain dark:hidden" />
+                            <img src={LOGO_DARK} alt="EDFM Logo" className="w-full h-full object-contain hidden dark:block" />
+                         </div>
                         <h1 className="text-4xl font-bold text-base-content dark:text-gray-100 tracking-tight uppercase">EDFM</h1>
                     </div>
                     <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">

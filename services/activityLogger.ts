@@ -19,11 +19,15 @@ export const logActivity = async (action: string, details: string, actingUser?: 
         
         if (user) {
             // Fetch the very latest profile name to ensure consistency
-            const { data: profile } = await supabase
+            const { data: profile, error: profileError } = await supabase
                 .from('users')
                 .select('name')
                 .eq('id', user.id)
-                .single();
+                .maybeSingle();
+
+            if (profileError) {
+                console.warn("Activity Logger: Could not fetch profile for user:", user.id);
+            }
 
             userInfo = {
                 id: user.id,

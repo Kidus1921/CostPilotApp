@@ -48,12 +48,12 @@ const FinancialApprovalsTab: React.FC = () => {
         
         console.log("Approving project:", project.id);
         
-        // Ensure we have a team leader ID for notification
-        let teamLeaderId = project.teamLeader?.id;
+        // Determine recipient: prioritize creator, fallback to team leader
+        let recipientId = project.createdBy || project.teamLeader?.id;
         
-        // If teamLeader is just a string (ID), use it
-        if (!teamLeaderId && typeof project.teamLeader === 'string') {
-            teamLeaderId = project.teamLeader;
+        // If teamLeader is just a string (ID), use it if no creator
+        if (!recipientId && typeof project.teamLeader === 'string') {
+            recipientId = project.teamLeader;
         }
         
         const { error } = await supabase.from('projects').update({ 
@@ -64,15 +64,20 @@ const FinancialApprovalsTab: React.FC = () => {
         
         if (error) {
             console.error("Failed to approve project:", error);
-            alert("Approval Failed: " + error.message + ". Ensure you have run the database setup script.");
+            const isMissingColumn = error.message.includes('column') || error.code === 'PGRST204';
+            alert(
+                isMissingColumn 
+                ? `Approval Failed: Missing database columns. Please click the "i" (SQL) icon in the sidebar and run the updated "DATABASE ATOMIC SYNC" script in your Supabase SQL Editor.`
+                : `Approval Failed: ${error.message}`
+            );
             return;
         }
 
         logActivity('Approved Project', project.title);
         
-        if (teamLeaderId) {
+        if (recipientId) {
             createNotification({
-                userId: teamLeaderId,
+                userId: recipientId,
                 title: 'Project Approved',
                 message: `Your project "${project.title}" has been approved and is now in progress.`,
                 type: NotificationType.ApprovalResult,
@@ -89,12 +94,12 @@ const FinancialApprovalsTab: React.FC = () => {
 
         console.log("Rejecting project:", project.id, "Reason:", reason);
 
-        // Ensure we have a team leader ID for notification
-        let teamLeaderId = project.teamLeader?.id;
+        // Determine recipient: prioritize creator, fallback to team leader
+        let recipientId = project.createdBy || project.teamLeader?.id;
         
-        // If teamLeader is just a string (ID), use it
-        if (!teamLeaderId && typeof project.teamLeader === 'string') {
-            teamLeaderId = project.teamLeader;
+        // If teamLeader is just a string (ID), use it if no creator
+        if (!recipientId && typeof project.teamLeader === 'string') {
+            recipientId = project.teamLeader;
         }
 
         const { error } = await supabase.from('projects').update({ 
@@ -104,15 +109,20 @@ const FinancialApprovalsTab: React.FC = () => {
 
         if (error) {
              console.error("Failed to reject project:", error);
-             alert("Rejection Failed: " + error.message + ". Ensure you have run the database setup script.");
+             const isMissingColumn = error.message.includes('column') || error.code === 'PGRST204';
+             alert(
+                 isMissingColumn 
+                 ? `Rejection Failed: Missing database columns. Please click the "i" (SQL) icon in the sidebar and run the updated "DATABASE ATOMIC SYNC" script in your Supabase SQL Editor.`
+                 : `Rejection Failed: ${error.message}`
+             );
              return;
         }
 
         logActivity('Rejected Project', `${project.title} for reason: ${reason}`);
         
-        if (teamLeaderId) {
+        if (recipientId) {
             createNotification({
-                userId: teamLeaderId,
+                userId: recipientId,
                 title: 'Project Rejected',
                 message: `Your project "${project.title}" has been rejected. Reason: ${reason}`,
                 type: NotificationType.ApprovalResult,

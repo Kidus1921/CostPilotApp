@@ -105,11 +105,18 @@ const ProjectsPage: React.FC = () => {
     const [nameEditInputs, setNameEditInputs] = useState<Record<string, string>>({});
 
     const [newTaskName, setNewTaskName] = useState('');
+    const [newTaskDescription, setNewTaskDescription] = useState('');
+    const [newTaskAssignedToId, setNewTaskAssignedToId] = useState('');
+    const [newTaskEstimatedCost, setNewTaskEstimatedCost] = useState('');
+    const [newTaskDeadline, setNewTaskDeadline] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // RBAC Helpers
     const isAdmin = currentUser?.role === UserRole.Admin;
-    const isAdminOrPM = isAdmin || currentUser?.role === UserRole.ProjectManager;
+    const isPM = currentUser?.role === UserRole.ProjectManager;
+    const isTeamLeader = selectedProject?.teamLeader?.id === currentUser?.id;
+    const canManageProject = isAdmin || isPM || isTeamLeader;
+    const isAdminOrPM = isAdmin || isPM;
 
     // Handle deep navigation
     useEffect(() => {
@@ -145,7 +152,12 @@ const ProjectsPage: React.FC = () => {
             logActivity(action, `${detail} in ${selectedProject.title}`);
             refreshData();
         } else {
-            alert(`Operational Error: ${error.message}`);
+            const isMissingColumn = error.message.includes('column') || error.code === 'PGRST204';
+            alert(
+                isMissingColumn 
+                ? `Operational Error: Missing database columns. Please click the "i" (SQL) icon in the sidebar and run the updated "DATABASE ATOMIC SYNC" script in your Supabase SQL Editor.`
+                : `Operational Error: ${error.message}`
+            );
         }
     };
 
@@ -170,13 +182,16 @@ const ProjectsPage: React.FC = () => {
         e.preventDefault();
         if (!selectedProject || !newTaskName.trim() || !currentUser) return;
 
+        const assignedUser = users.find(u => u.id === newTaskAssignedToId) || currentUser;
+
         const newTask: Task = {
             id: generateId(),
             name: newTaskName.trim(),
-            description: '',
-            assignedTo: currentUser,
+            description: newTaskDescription.trim(),
+            assignedTo: assignedUser,
             status: TaskStatus.Pending,
-            estimatedCost: 0,
+            estimatedCost: parseFloat(newTaskEstimatedCost) || 0,
+            deadline: newTaskDeadline || undefined,
         };
 
         const updatedTasks = [...(selectedProject.tasks || []), newTask];
@@ -184,6 +199,10 @@ const ProjectsPage: React.FC = () => {
         await persistProjectUpdates({ tasks: updatedTasks, spent, completionPercentage }, 'Task Deployment', newTask.name);
         setIsAddTaskOpen(false);
         setNewTaskName('');
+        setNewTaskDescription('');
+        setNewTaskAssignedToId('');
+        setNewTaskEstimatedCost('');
+        setNewTaskDeadline('');
     };
 
     const handleRenameTask = async (taskId: string) => {
@@ -290,16 +309,26 @@ const ProjectsPage: React.FC = () => {
         const file = e.target.files?.[0];
         if (!file || !selectedProject || !currentUser) return;
 
+        // Check file size (limit to 5MB to prevent "Failed to fetch" CORS errors on 413 Payload Too Large)
+        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+        if (file.size > MAX_FILE_SIZE) {
+            alert(`Archival Error: File size exceeds the 5MB limit. Please select a smaller file.`);
+            return;
+        }
+
         setUploading(true);
         try {
             const fileExt = file.name.split('.').pop();
             const fileName = `${selectedProject.id}/${generateId()}.${fileExt}`;
             const filePath = `documents/${fileName}`;
 
-            const { error: uploadError } = await supabase.storage.from('projects').upload(filePath, file);
+            const { error: uploadError } = await supabase.storage.from('project-documents').upload(filePath, file, {
+                cacheControl: '3600',
+                upsert: false
+            });
             if (uploadError) throw uploadError;
 
-            const { data: { publicUrl } } = supabase.storage.from('projects').getPublicUrl(filePath);
+            const { data: { publicUrl } } = supabase.storage.from('project-documents').getPublicUrl(filePath);
 
             const newDoc: Document = {
                 id: filePath,
@@ -313,7 +342,12 @@ const ProjectsPage: React.FC = () => {
             const updatedDocs = [...(selectedProject.documents || []), newDoc];
             await persistProjectUpdates({ documents: updatedDocs }, 'Asset Archival', file.name);
         } catch (error: any) {
-            alert("Archival Error: " + error.message);
+            console.error("Upload Error:", error);
+            if (error.message === 'Failed to fetch') {
+                alert("Archival Error: Network connection failed or CORS issue. Please check your internet connection, disable adblockers, and ensure your Supabase Storage bucket is correctly configured and not paused.");
+            } else {
+                alert("Archival Error: " + error.message);
+            }
         } finally {
             setUploading(false);
         }
@@ -348,7 +382,7 @@ const ProjectsPage: React.FC = () => {
                         <ArrowLeftIcon className="w-4 h-4 group-hover:-translate-x-1 transition-transform"/> Return to Registry
                     </button>
                     
-                    {isAdminOrPM && (
+                    {canManageProject && (
                         <div className="flex flex-wrap items-center gap-2">
                             <button onClick={() => setIsEditModalOpen(true)} className="flex items-center gap-2 text-[10px] font-bold bg-white dark:bg-white/5 text-gray-700 dark:text-white px-5 py-2 rounded-xl hover:bg-base-200 dark:hover:bg-white/10 shadow-sm border border-base-300 dark:border-white/10 uppercase tracking-widest transition-all">
                                 <PencilIcon className="w-3.5 h-3.5"/> Edit Scope
@@ -527,7 +561,7 @@ const ProjectsPage: React.FC = () => {
                                     <CheckCircleIcon className="w-5 h-5 text-brand-primary" />
                                     <h3 className="text-xs font-bold uppercase tracking-widest dark:text-white">Operational Registry</h3>
                                 </div>
-                                {isActiveStatus && !isOnHold && (
+                                {isActiveStatus && !isOnHold && canManageProject && (
                                     <button onClick={() => setIsAddTaskOpen(true)} className="flex items-center gap-2 text-[10px] font-bold bg-brand-primary/10 text-brand-primary px-4 py-2 rounded-xl hover:bg-brand-primary hover:text-white transition-all uppercase tracking-widest border border-brand-primary/20 shadow-sm">
                                         <PlusIcon className="w-3.5 h-3.5"/> Initialize Task
                                     </button>
@@ -540,19 +574,76 @@ const ProjectsPage: React.FC = () => {
                                         <h4 className="text-[10px] font-bold text-brand-primary uppercase tracking-widest">New Task Deployment</h4>
                                         <button onClick={() => setIsAddTaskOpen(false)} className="text-gray-400 hover:text-brand-tertiary"><XIcon className="w-4 h-4" /></button>
                                     </div>
-                                    <form onSubmit={handleAddTask} className="flex gap-4">
-                                        <input 
-                                            type="text" 
-                                            placeholder="Enter operational identifier..." 
-                                            value={newTaskName} 
-                                            onChange={e => setNewTaskName(e.target.value)} 
-                                            className="flex-1 px-4 py-3 text-sm bg-base-100 dark:bg-black border border-base-300 dark:border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary transition-all text-black dark:text-white font-bold" 
-                                            required 
-                                            autoFocus
-                                        />
-                                        <button type="submit" className="px-10 py-3 bg-brand-primary text-white text-[10px] font-bold uppercase rounded-xl shadow-lg hover:brightness-110 active:scale-95 transition-all">
-                                            Deploy
-                                        </button>
+                                    <form onSubmit={handleAddTask} className="space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Task Identifier</label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Enter operational identifier..." 
+                                                    value={newTaskName} 
+                                                    onChange={e => setNewTaskName(e.target.value)} 
+                                                    className="w-full px-4 py-3 text-sm bg-base-100 dark:bg-black border border-base-300 dark:border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary transition-all text-black dark:text-white font-bold" 
+                                                    required 
+                                                    autoFocus
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Assigned Agent</label>
+                                                <select 
+                                                    value={newTaskAssignedToId} 
+                                                    onChange={e => setNewTaskAssignedToId(e.target.value)}
+                                                    className="w-full px-4 py-3 text-sm bg-base-100 dark:bg-black border border-base-300 dark:border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary transition-all text-black dark:text-white font-bold"
+                                                    required
+                                                >
+                                                    <option value="">Select Agent...</option>
+                                                    {selectedProject.team?.map(u => (
+                                                        <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Operational Description</label>
+                                            <textarea 
+                                                placeholder="Describe the task objectives..." 
+                                                value={newTaskDescription} 
+                                                onChange={e => setNewTaskDescription(e.target.value)} 
+                                                className="w-full px-4 py-3 text-sm bg-base-100 dark:bg-black border border-base-300 dark:border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary transition-all text-black dark:text-white font-medium min-h-[80px]" 
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Estimated Consumption (USD)</label>
+                                                <div className="relative">
+                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+                                                    <input 
+                                                        type="number" 
+                                                        placeholder="0.00" 
+                                                        value={newTaskEstimatedCost} 
+                                                        onChange={e => setNewTaskEstimatedCost(e.target.value)} 
+                                                        className="w-full pl-8 pr-4 py-3 text-sm bg-base-100 dark:bg-black border border-base-300 dark:border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary transition-all text-black dark:text-white font-bold" 
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Operational Deadline</label>
+                                                <input 
+                                                    type="date" 
+                                                    value={newTaskDeadline} 
+                                                    onChange={e => setNewTaskDeadline(e.target.value)} 
+                                                    className="w-full px-4 py-3 text-sm bg-base-100 dark:bg-black border border-base-300 dark:border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary transition-all text-black dark:text-white font-bold" 
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="flex justify-end pt-2">
+                                            <button type="submit" className="px-12 py-3.5 bg-brand-primary text-white text-[10px] font-bold uppercase rounded-xl shadow-lg hover:brightness-110 active:scale-95 transition-all tracking-widest">
+                                                Deploy Task
+                                            </button>
+                                        </div>
                                     </form>
                                 </div>
                             )}
@@ -562,7 +653,7 @@ const ProjectsPage: React.FC = () => {
                                     const isCompleting = completingTaskId === task.id;
                                     const isEditing = editingTaskId === task.id;
                                     const isTaskCompleted = task.status === TaskStatus.Completed;
-                                    const canModify = !isTaskCompleted || isAdminOrPM;
+                                    const canModify = !isTaskCompleted || canManageProject;
 
                                     return (
                                         <div 
@@ -614,16 +705,31 @@ const ProjectsPage: React.FC = () => {
                                                                         </div>
                                                                     )}
                                                                 </div>
-                                                                <div className="flex wrap items-center gap-3 mt-1">
+                                                                 <div className="flex wrap items-center gap-3 mt-1">
                                                                     <p className="text-[9px] text-gray-500 uppercase tracking-widest font-bold flex items-center gap-1.5">
                                                                         <UserGroupIcon className="w-2.5 h-2.5" /> Agent: {task.assignedTo?.name}
                                                                     </p>
+                                                                    {task.deadline && (
+                                                                        <p className="text-[9px] text-brand-secondary uppercase tracking-widest font-bold flex items-center gap-1.5">
+                                                                            <CalendarIcon className="w-2.5 h-2.5" /> {new Date(task.deadline).toLocaleDateString()}
+                                                                        </p>
+                                                                    )}
+                                                                    {!isTaskCompleted && task.estimatedCost !== undefined && task.estimatedCost > 0 && (
+                                                                        <p className="text-[9px] text-gray-500 uppercase tracking-widest font-bold flex items-center gap-1.5">
+                                                                            <FinanceIcon className="w-2.5 h-2.5" /> Est: {formatCurrency(task.estimatedCost)}
+                                                                        </p>
+                                                                    )}
                                                                     {isTaskCompleted && task.completionDetails?.description && (
                                                                         <p className="text-[9px] text-gray-400 dark:text-gray-500 italic flex items-center gap-1">
                                                                             <ChatIcon className="w-2.5 h-2.5" /> "{task.completionDetails.description}"
                                                                         </p>
                                                                     )}
                                                                 </div>
+                                                                {task.description && (
+                                                                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2 line-clamp-2 font-medium">
+                                                                        {task.description}
+                                                                    </p>
+                                                                )}
                                                             </>
                                                         )}
                                                     </div>
@@ -675,7 +781,7 @@ const ProjectsPage: React.FC = () => {
                                                                     type="text" 
                                                                     placeholder="Operational observations / comments..." 
                                                                     value={commentInputs[task.id] || ''}
-                                                                    onChange={e => setCommentInputs({...commentInputs, [commentInputs[task.id]]: e.target.value})}
+                                                                    onChange={e => setCommentInputs({...commentInputs, [task.id]: e.target.value})}
                                                                     className="w-full px-4 py-3 text-xs bg-base-100 dark:bg-[#111111] border border-base-300 dark:border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-green-500/50 font-medium"
                                                                 />
                                                             </div>
@@ -770,7 +876,8 @@ const ProjectsPage: React.FC = () => {
                         spent: 0, 
                         completionPercentage: 0, 
                         tasks: [], 
-                        documents: [] 
+                        documents: [],
+                        createdBy: currentUser?.id
                     }]);
                     if (error) {
                         throw error; // Let CreateProjectModal handle the catch and alert

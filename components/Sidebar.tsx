@@ -8,11 +8,13 @@ import {
   BellIcon,
   ArrowLeftIcon,
   XIcon,
+  FolderIcon,
 } from "./IconComponents";
 import { UserRole } from "../types";
 import { useAppContext } from "../AppContext";
 
-const LOGO_URL = "https://vgubtzdnimaguwaqzlpa.supabase.co/storage/v1/object/sign/assets/logo.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yY2Q0MmM3Yi04YzY0LTQzYzItYTA3OC00YzgzNDMyYzIwYWEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvbG9nby5wbmciLCJpYXQiOjE3NzAwNDgwMjQsImV4cCI6ODY1NzY5OTYxNjI0fQ.xAL26M1UaUbJMK5wdZNBbUdR58vPihBK2hovd7rlg38";
+const LOGO_LIGHT = "https://vgubtzdnimaguwaqzlpa.supabase.co/storage/v1/object/sign/assets/ejat.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yY2Q0MmM3Yi04YzY0LTQzYzItYTA3OC00YzgzNDMyYzIwYWEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvZWphdC5wbmciLCJpYXQiOjE3NzIxNzgwMzksImV4cCI6ODY1NzcyMDkxNjM5fQ.mvmh-A4EqIaAlfHVnWsPvVf34Kp96QkNKaECevPb8SU";
+const LOGO_DARK = "https://vgubtzdnimaguwaqzlpa.supabase.co/storage/v1/object/sign/assets/ejat.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yY2Q0MmM3Yi04YzY0LTQzYzItYTA3OC00YzgzNDMyYzIwYWEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvZWphdC5wbmciLCJpYXQiOjE3NzIxNzk1NDgsImV4cCI6ODY1NzcyMDkzMTQ4fQ.LXtNGYK1MeB3UT_eFQaYvz-XyIomyUyBDjDfDeyhC1c";
 
 /* =========================================================
    COLOR SYSTEM (NEGATIVE / DARK MODE FIRST)
@@ -210,8 +212,9 @@ const Sidebar: React.FC<SidebarProps> = ({
             flex flex-col items-center justify-center py-8
             bg-transparent border-b border-white/5 flex-shrink-0
           ">
-            <div className="bg-white p-2 rounded-xl w-20 h-20 flex items-center justify-center shadow-2xl mb-4">
-              <img src={LOGO_URL} alt="EDFM" className="w-full h-full object-contain" />
+            <div className="bg-white p-1 rounded-xl w-20 h-20 flex items-center justify-center shadow-2xl mb-4 overflow-hidden">
+              <img src={LOGO_LIGHT} alt="EDFM" className="w-full h-full object-contain dark:hidden" />
+              <img src={LOGO_DARK} alt="EDFM" className="w-full h-full object-contain hidden dark:block" />
             </div>
             
             <div className="text-center px-4">
@@ -265,10 +268,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           ${isCollapsed ? "py-4" : "py-6"}
         `}>
           <div className={`
-            transition-all duration-300 bg-white p-1.5 rounded-xl flex items-center justify-center shadow-xl
+            transition-all duration-300 bg-white p-1 rounded-xl flex items-center justify-center shadow-xl overflow-hidden
             ${isCollapsed ? "w-10 h-10" : "w-16 h-16 mb-3"}
           `}>
-            <img src={LOGO_URL} alt="EDFM" className="w-full h-full object-contain" />
+            <img src={LOGO_LIGHT} alt="EDFM" className="w-full h-full object-contain dark:hidden" />
+            <img src={LOGO_DARK} alt="EDFM" className="w-full h-full object-contain hidden dark:block" />
           </div>
 
           {!isCollapsed && (

@@ -60,36 +60,142 @@ serve(async (req) => {
             Authorization: `Bearer ${RESEND_API_KEY}`,
           },
           body: JSON.stringify({
-            from: `CostPilot Operational Registry <${FROM_EMAIL}>`,
+            from: `EDFM Notifications <${FROM_EMAIL}>`,
             to: [project.teamLeader.email],
             subject: `🚨 Alert: ${project.title} - ${isOverdue ? 'Overdue' : 'Due Today'}`,
             html: `
-              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden; background: white;">
-                <div style="background: #65081b; padding: 20px; text-align: center;">
-                  <h2 style="color: #d3a200; margin: 0; font-size: 18px; letter-spacing: 2px;">OPERATIONAL ALERT</h2>
-                </div>
-                <div style="padding: 30px;">
-                  <p style="font-size: 16px;">Hello <strong>${project.teamLeader.name}</strong>,</p>
-                  <p>Our system has detected a project in your portfolio that requires immediate attention:</p>
-                  
-                  <div style="background: #f8f8f8; padding: 20px; border-left: 6px solid ${accentColor}; margin: 25px 0; border-radius: 4px;">
-                    <p style="margin: 0; font-size: 12px; color: #666; font-weight: bold; text-transform: uppercase;">Project Identifier</p>
-                    <p style="margin: 5px 0 15px 0; font-size: 18px; font-weight: 900; color: #1a1a1a;">${project.title}</p>
-                    
-                    <p style="margin: 0; font-size: 12px; color: #666; font-weight: bold; text-transform: uppercase;">Terminal Status</p>
-                    <p style="margin: 5px 0 0 0; font-size: 14px; font-weight: 800; color: ${accentColor};">${statusLabel}</p>
-                  </div>
-                  
-                  <p style="font-size: 14px; color: #444;">Please access the <strong>CostPilot Registry</strong> immediately to finalize this scope or request an extension from the Authority Leads.</p>
-                  
-                  <div style="text-align: center; margin-top: 30px;">
-                    <a href="${Deno.env.get('PUBLIC_APP_URL') || '#'}" style="background: #65081b; color: #d3a200; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">Open Registry Terminal</a>
-                  </div>
-                </div>
-                <div style="background: #f4f4f4; padding: 15px; text-align: center; font-size: 10px; color: #888;">
-                  This is an automated diagnostic message. Security Code: ${project.id.slice(0,8).toUpperCase()}
-                </div>
-              </div>
+  <div style="
+    --primary-color: #65081b;
+    --secondary-color: #d3a200;
+    --tertiary-color: #c41034;
+    --highlight-color: #f9dc5c;
+    --neutral-white: #ffffff;
+    --neutral-black: #000000;
+    --bg-main: #65081b;
+    --bg-surface: #65081b;
+    --bg-elevated: #c41034;
+    --text-primary: #ffffff;
+    --text-muted: #e5e7eb;
+
+    background-color: #65081b;
+    padding: 40px 20px;
+    font-family: 'Georgia', serif;
+    color: #ffffff;
+  ">
+    <div style="
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #65081b;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+      border: 1px solid #d3a200;
+    ">
+      <!-- Header -->
+      <div style="
+        background: linear-gradient(135deg, #65081b 0%, #c41034 100%);
+        padding: 40px 20px;
+        text-align: center;
+        border-bottom: 2px solid #d3a200;
+      ">
+        <img src="https://vgubtzdnimaguwaqzlpa.supabase.co/storage/v1/object/sign/assets/ejat.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8yY2Q0MmM3Yi04YzY0LTQzYzItYTA3OC00YzgzNDMyYzIwYWEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvZWphdC5wbmciLCJpYXQiOjE3NzIxNzgwMzksImV4cCI6ODY1NzcyMDkxNjM5fQ.mvmh-A4EqIaAlfHVnWsPvVf34Kp96QkNKaECevPb8SU" 
+             alt="EDFM Logo" 
+             style="height: 70px; width: auto; margin-bottom: 20px;" />
+        <h1 style="
+          margin: 0;
+          font-size: 24px;
+          font-weight: bold;
+          color: #f9dc5c;
+          text-transform: uppercase;
+          letter-spacing: 3px;
+        ">
+          OPERATIONAL ALERT
+        </h1>
+      </div>
+
+      <!-- Body -->
+      <div style="padding: 40px 30px; background-color: #65081b;">
+        <p style="
+          font-size: 18px;
+          color: #ffffff;
+          margin-bottom: 15px;
+          font-weight: bold;
+        ">
+          Hello ${project.teamLeader.name},
+        </p>
+        <p style="
+          font-size: 15px;
+          color: #e5e7eb;
+          line-height: 1.6;
+          margin-bottom: 30px;
+        ">
+          Our system has detected a project in your portfolio that requires immediate attention:
+        </p>
+
+        <div style="
+          background-color: #c41034;
+          border-radius: 12px;
+          padding: 25px;
+          margin-bottom: 35px;
+          border-left: 5px solid ${accentColor};
+          box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        ">
+          <p style="margin: 0; font-size: 12px; color: #f9dc5c; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Project Identifier</p>
+          <p style="margin: 5px 0 20px 0; font-size: 18px; font-weight: bold; color: #ffffff;">${project.title}</p>
+          
+          <p style="margin: 0; font-size: 12px; color: #f9dc5c; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Terminal Status</p>
+          <p style="margin: 5px 0 0 0; font-size: 16px; font-weight: bold; color: ${accentColor}; background-color: rgba(255,255,255,0.1); padding: 6px 10px; border-radius: 4px; display: inline-block;">${statusLabel}</p>
+        </div>
+        
+        <p style="font-size: 14px; color: #e5e7eb; line-height: 1.6;">Please access the <strong>CostPilot Registry</strong> immediately to finalize this scope or request an extension from the Authority Leads.</p>
+
+        <div style="text-align: center; margin-top: 35px;">
+          <a href="${Deno.env.get('PUBLIC_APP_URL') || '#'}" style="
+            display: inline-block;
+            background-color: #d3a200;
+            color: #000000;
+            padding: 16px 35px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+          ">
+            Open Registry Terminal
+          </a>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="
+        padding: 30px;
+        background-color: rgba(0,0,0,0.2);
+        text-align: center;
+        border-top: 1px solid rgba(211, 162, 0, 0.2);
+      ">
+        <p style="
+          margin: 0;
+          font-size: 12px;
+          color: #e5e7eb;
+          letter-spacing: 0.5px;
+        ">
+          © 2026 EDFM Management Systems
+        </p>
+        <p style="
+          margin: 10px 0 0 0;
+          font-size: 10px;
+          color: #d3a200;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+          opacity: 0.8;
+        ">
+          Confidential • Priority Alert • Code: ${project.id.slice(0,8).toUpperCase()}
+        </p>
+      </div>
+    </div>
+  </div>
             `,
           }),
         });

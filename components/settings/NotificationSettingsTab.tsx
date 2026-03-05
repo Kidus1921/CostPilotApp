@@ -22,6 +22,8 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
     const [loading, setLoading] = useState(true);
     const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
     const [testStatus, setTestStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
+    const [deadlineTestStatus, setDeadlineTestStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+    const [deadlineErrorMsg, setDeadlineErrorMsg] = useState<string | null>(null);
 
     useEffect(() => {
         if (!currentUserId) return;
@@ -70,6 +72,35 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
         }
     };
 
+    const handleSendDeadlineTest = async () => {
+        setDeadlineTestStatus('sending');
+        setDeadlineErrorMsg(null);
+        try {
+            const response = await fetch('/api/cron/send-deadline-notifications', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json().catch(() => null);
+            if (response.ok) {
+                setDeadlineTestStatus('sent');
+            } else {
+                setDeadlineTestStatus('error');
+                setDeadlineErrorMsg(data?.error || 'Unknown error occurred');
+            }
+            setTimeout(() => {
+                setDeadlineTestStatus('idle');
+                setDeadlineErrorMsg(null);
+            }, 5000);
+        } catch (err: any) {
+            setDeadlineTestStatus('error');
+            setDeadlineErrorMsg(err.message);
+            setTimeout(() => {
+                setDeadlineTestStatus('idle');
+                setDeadlineErrorMsg(null);
+            }, 5000);
+        }
+    };
+
     if (loading) return <div className="p-20 text-center animate-pulse uppercase tracking-[0.3em] font-bold text-gray-500 dark:text-gray-400">Syncing Registry...</div>;
     if (!preferences) return null;
 
@@ -89,13 +120,34 @@ const NotificationSettingsTab: React.FC<NotificationSettingsTabProps> = ({ curre
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button 
-                            onClick={handleSendTest}
-                            disabled={testStatus !== 'idle'}
-                            className="text-[10px] font-bold text-gray-500 hover:text-brand-primary uppercase tracking-widest border border-gray-300 dark:border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-all"
-                        >
-                            {testStatus === 'sending' ? 'Dispatching...' : testStatus === 'sent' ? 'Test Sent' : 'Send Test Alert'}
-                        </button>
+                        <div className="flex flex-col gap-2">
+                            <button 
+                                onClick={handleSendTest}
+                                disabled={testStatus !== 'idle'}
+                                className="text-[10px] font-bold text-gray-500 hover:text-brand-primary uppercase tracking-widest border border-gray-300 dark:border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-all"
+                            >
+                                {testStatus === 'sending' ? 'Dispatching...' : testStatus === 'sent' ? 'Test Sent' : 'Send Test Alert'}
+                            </button>
+                            <button 
+                                onClick={handleSendDeadlineTest}
+                                disabled={deadlineTestStatus !== 'idle'}
+                                className={`text-[10px] font-bold uppercase tracking-widest border px-3 py-1.5 rounded-lg transition-all ${
+                                    deadlineTestStatus === 'error' 
+                                    ? 'border-red-500 text-red-500' 
+                                    : 'border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10'
+                                }`}
+                                title={deadlineErrorMsg || ''}
+                            >
+                                {deadlineTestStatus === 'sending' ? 'Checking Deadlines...' : 
+                                 deadlineTestStatus === 'sent' ? 'Emails Dispatched' : 
+                                 deadlineTestStatus === 'error' ? 'Trigger Failed (Hover for details)' : 'Test Deadline Emails'}
+                            </button>
+                            {deadlineErrorMsg && (
+                                <p className="text-xs text-red-500 max-w-xs truncate" title={deadlineErrorMsg}>
+                                    {deadlineErrorMsg}
+                                </p>
+                            )}
+                        </div>
                         <button 
                             onClick={() => setPreferences({ ...preferences, emailEnabled: !preferences.emailEnabled })} 
                             className={`relative inline-flex h-6 w-12 items-center rounded-full transition-all ${preferences.emailEnabled ? 'bg-brand-primary' : 'bg-gray-300 dark:bg-gray-700'}`}

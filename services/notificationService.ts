@@ -1,7 +1,6 @@
 
 import { supabase } from '../supabaseClient';
 import { Notification, NotificationType, User, NotificationPriority, Project, ProjectStatus, UserNotificationPreferences } from '../types';
-import { sendEmailNotification } from './emailService';
 
 // Default preferences to fall back on
 const defaultPreferences: UserNotificationPreferences = {
@@ -38,26 +37,17 @@ const generateNoreplyTemplate = (userName: string, title: string, message: strin
     const actionUrl = link ? `${window.location.origin}${link}` : window.location.origin;
     
     return `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
-        <div style="background-color: #65081b; padding: 24px; text-align: center;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 24px; letter-spacing: 2px; text-transform: uppercase;">CostPilot</h1>
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1a1a1a;">
+        <h2 style="font-size: 18px; color: #65081b; margin-top: 0;">Hello ${userName},</h2>
+        <p style="font-size: 16px; line-height: 1.6; color: #4b5563;">
+            You have received a new operational notification regarding your project portfolio:
+        </p>
+        <div style="background-color: #f9fafb; border-left: 4px solid #d3a200; padding: 16px; margin: 24px 0; border-radius: 0 8px 8px 0;">
+            <strong style="display: block; font-size: 14px; text-transform: uppercase; color: #9ca3af; margin-bottom: 4px;">${title}</strong>
+            <p style="margin: 0; font-size: 16px; font-weight: 500;">${message}</p>
         </div>
-        <div style="padding: 32px; color: #1a1a1a;">
-            <h2 style="font-size: 18px; color: #65081b;">Hello ${userName},</h2>
-            <p style="font-size: 16px; line-height: 1.6; color: #4b5563;">
-                You have received a new operational notification regarding your project portfolio:
-            </p>
-            <div style="background-color: #f9fafb; border-left: 4px solid #d3a200; padding: 16px; margin: 24px 0;">
-                <strong style="display: block; font-size: 14px; text-transform: uppercase; color: #9ca3af; margin-bottom: 4px;">${title}</strong>
-                <p style="margin: 0; font-size: 16px; font-weight: 500;">${message}</p>
-            </div>
-            <div style="text-align: center; margin-top: 32px;">
-                <a href="${actionUrl}" style="background-color: #65081b; color: #ffffff; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">View in Dashboard</a>
-            </div>
-        </div>
-        <div style="background-color: #f3f4f6; padding: 16px; text-align: center; font-size: 12px; color: #6b7280;">
-            <p style="margin: 0;">This is an automated system message from CostPilot. Please do not reply to this email.</p>
-            <p style="margin: 8px 0 0 0;">© ${new Date().getFullYear()} CostPilot Operational Registry</p>
+        <div style="text-align: center; margin-top: 32px;">
+            <a href="${actionUrl}" style="background-color: #65081b; color: #ffffff; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block; box-shadow: 0 4px 6px rgba(101, 8, 27, 0.2);">View in Dashboard</a>
         </div>
     </div>
     `;
@@ -67,7 +57,7 @@ const generateNoreplyTemplate = (userName: string, title: string, message: strin
  * Main function to create a notification with strict deduplication and email relay.
  */
 export const createNotification = async (notificationData: Omit<Notification, 'id' | 'timestamp' | 'isRead'>): Promise<void> => {
-    console.log(`[Notification Engine] Initializing creation for user: ${notificationData.userId} | Type: ${notificationData.type}`);
+    // console.log(`[Notification Engine] Initializing creation for user: ${notificationData.userId} | Type: ${notificationData.type}`);
     
     try {
         const today = new Date();
@@ -83,10 +73,11 @@ export const createNotification = async (notificationData: Omit<Notification, 'i
             .gte('timestamp', today.toISOString())
             .limit(1);
 
-        if (checkError) throw checkError;
-
-        if (existing && existing.length > 0) {
-            console.log(`[Notification Engine] Skipping: Identical notification dispatched within the current 24h window.`);
+        if (checkError) {
+            // console.warn(`[Notification Engine] Deduplication check failed (likely RLS):`, checkError.message);
+            // We continue anyway to attempt insertion, as RLS for INSERT might be different
+        } else if (existing && existing.length > 0) {
+            // console.log(`[Notification Engine] Skipping: Identical notification dispatched within the current 24h window.`);
             return;
         }
 
@@ -98,38 +89,6 @@ export const createNotification = async (notificationData: Omit<Notification, 'i
         }]);
 
         if (dbError) throw dbError;
-
-        // 2. Handle Email Relay
-        let targetUser = await getUser(notificationData.userId);
-        
-        if (!targetUser || !targetUser.email) {
-            console.log(`[Notification Engine] Abort Relay: Target agent profile or email not found.`);
-            return;
-        }
-
-        const prefs = targetUser.notificationPreferences || defaultPreferences;
-        
-        if (prefs.emailEnabled) {
-            const emailPrefs = (prefs.email || {}) as any;
-            let shouldSendEmail = false;
-
-            if (notificationData.type === NotificationType.ApprovalRequest && emailPrefs.approvals) shouldSendEmail = true;
-            if (notificationData.type === NotificationType.ApprovalResult && emailPrefs.approvals) shouldSendEmail = true;
-            if (notificationData.type === NotificationType.CostOverrun && emailPrefs.costOverruns) shouldSendEmail = true;
-            if (notificationData.type === NotificationType.Deadline && emailPrefs.deadlines) shouldSendEmail = true;
-            if (notificationData.type === NotificationType.TaskUpdate && emailPrefs.taskUpdates) shouldSendEmail = true;
-            if (notificationData.type === NotificationType.System && emailPrefs.system) shouldSendEmail = true;
-
-            if (shouldSendEmail) {
-                const htmlBody = generateNoreplyTemplate(targetUser.name, notificationData.title, notificationData.message, notificationData.link);
-                
-                await sendEmailNotification({
-                    to: targetUser.email,
-                    subject: `[CostPilot] ${notificationData.title}`,
-                    body: htmlBody
-                });
-            }
-        }
 
     } catch (error) {
         console.error("[Notification Engine] Error: ", error);
