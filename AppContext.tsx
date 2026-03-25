@@ -32,6 +32,8 @@ interface AppContextType {
   setActivePage: (page: string, subTab?: string) => void;
   error: string | null;
   isOnline: boolean;
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -49,6 +51,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isProcessingAuth, setIsProcessingAuth] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('edfm-theme');
+    if (saved === 'light' || saved === 'dark') return saved;
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+      return 'light';
+    }
+    return 'dark';
+  });
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  }, []);
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+      root.classList.remove('light');
+    } else {
+      root.classList.add('light');
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('edfm-theme', theme);
+  }, [theme]);
 
   const isAdmin = currentUser?.role === UserRole.Admin;
 
@@ -102,10 +128,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         } = await supabase.auth.getSession();
 
         if (error) {
-          console.error('Auth: Session error:', error.message);
-          if (error.message.includes('Refresh Token Not Found') || error.message.includes('invalid refresh token')) {
+          const isRefreshTokenError = 
+            error.message.includes('Refresh Token Not Found') || 
+            error.message.includes('invalid refresh token') ||
+            error.message.includes('session_not_found');
+
+          if (isRefreshTokenError) {
+            // Silence these expected session-expired errors
+            console.warn('Auth: Session expired or invalid, signing out.');
             await supabase.auth.signOut();
             if (mounted) setCurrentUser(null);
+          } else {
+            console.error('Auth: Session error:', error.message);
           }
         }
 
@@ -310,6 +344,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         setActivePage,
         error,
         isOnline,
+        theme,
+        toggleTheme,
       }}
     >
       {children}

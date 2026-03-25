@@ -54,20 +54,20 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup }) => {
     };
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-base-200 py-12 px-4 sm:px-6 lg:px-8 dark:bg-gray-900 font-sans">
-            <div className="w-full max-w-md space-y-8 p-10 bg-base-100 dark:bg-gray-800 shadow-xl rounded-2xl">
+        <div className="flex min-h-screen items-center justify-center bg-base-200 py-12 px-4 sm:px-6 lg:px-8 dark:bg-[#65081b] font-sans theme-transition">
+            <div className="w-full max-w-md space-y-8 p-10 bg-base-100 dark:bg-black/30 dark:backdrop-blur-xl shadow-xl rounded-2xl border border-transparent dark:border-white/10">
                 <div>
                     <div className="flex flex-col items-center justify-center">
-                         <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center mb-4 overflow-hidden shadow-sm">
+                         <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center mb-4 overflow-hidden shadow-sm p-1">
                             <img src={LOGO_LIGHT} alt="EDFM Logo" className="w-full h-full object-contain dark:hidden" />
                             <img src={LOGO_DARK} alt="EDFM Logo" className="w-full h-full object-contain hidden dark:block" />
                          </div>
-                        <h1 className="text-4xl font-bold text-base-content dark:text-gray-100 tracking-tight uppercase">EDFM</h1>
+                        <h1 className="text-4xl font-bold text-base-content dark:text-[#f9dc5c] tracking-tight uppercase">EDFM</h1>
                     </div>
-                    <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+                    <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
                         {isSignup ? 'Create an Account' : 'Welcome Back'}
                     </h2>
-                     <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+                     <p className="mt-2 text-center text-sm text-gray-600 dark:text-white/60">
                         {isSignup ? 'Join EDFM to manage your projects' : 'Sign in to continue to your dashboard'}
                     </p>
                 </div>
@@ -83,7 +83,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup }) => {
                                     required
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
-                                    className="relative block w-full appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-400 focus:z-10 focus:border-brand-primary focus:outline-none focus:ring-brand-primary sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 transition-colors"
+                                    className="relative block w-full appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-400 focus:z-10 focus:border-brand-primary focus:outline-none focus:ring-brand-primary sm:text-sm dark:bg-white/5 dark:border-white/10 dark:text-white dark:placeholder-white/30 transition-colors"
                                     placeholder="Full Name"
                                 />
                             </div>
@@ -98,7 +98,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup }) => {
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="relative block w-full appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-400 focus:z-10 focus:border-brand-primary focus:outline-none focus:ring-brand-primary sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 transition-colors"
+                                className="relative block w-full appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-400 focus:z-10 focus:border-brand-primary focus:outline-none focus:ring-brand-primary sm:text-sm dark:bg-white/5 dark:border-white/10 dark:text-white dark:placeholder-white/30 transition-colors"
                                 placeholder="Email Address"
                             />
                         </div>
@@ -112,7 +112,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup }) => {
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="relative block w-full appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-400 focus:z-10 focus:border-brand-primary focus:outline-none focus:ring-brand-primary sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 transition-colors"
+                                className="relative block w-full appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-400 focus:z-10 focus:border-brand-primary focus:outline-none focus:ring-brand-primary sm:text-sm dark:bg-white/5 dark:border-white/10 dark:text-white dark:placeholder-white/30 transition-colors"
                                 placeholder="Password"
                             />
                         </div>
@@ -126,7 +126,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup }) => {
                                     required
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className="relative block w-full appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-400 focus:z-10 focus:border-brand-primary focus:outline-none focus:ring-brand-primary sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 transition-colors"
+                                    className="relative block w-full appearance-none rounded-md border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-400 focus:z-10 focus:border-brand-primary focus:outline-none focus:ring-brand-primary sm:text-sm dark:bg-white/5 dark:border-white/10 dark:text-white dark:placeholder-white/30 transition-colors"
                                     placeholder="Confirm Password"
                                 />
                             </div>
@@ -144,7 +144,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup }) => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="group relative flex w-full justify-center rounded-md border border-transparent bg-[#65081b] py-3 px-4 text-sm font-bold text-white hover:bg-[#d3a200] focus:outline-none focus:ring-2 focus:ring-[#d3a200] focus:ring-offset-2 disabled:bg-opacity-50 dark:focus:ring-offset-gray-800 transition-all shadow-lg"
+                            className="group relative flex w-full justify-center rounded-md border border-transparent bg-[#65081b] dark:bg-[#d3a200] py-3 px-4 text-sm font-bold text-white dark:text-black hover:bg-[#d3a200] dark:hover:bg-[#f9dc5c] focus:outline-none focus:ring-2 focus:ring-[#d3a200] focus:ring-offset-2 disabled:bg-opacity-50 dark:focus:ring-offset-gray-800 transition-all shadow-lg"
                         >
                             {loading ? (isSignup ? 'Creating Account...' : 'Signing in...') : (isSignup ? 'Sign Up' : 'Sign in')}
                         </button>
@@ -152,11 +152,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSignup }) => {
                 </form>
                 
                 <div className="text-center mt-4">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-sm text-gray-600 dark:text-white/60">
                         {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
                         <button 
                             onClick={() => { setIsSignup(!isSignup); setError(''); setSuccessMsg(''); }}
-                            className="font-bold text-brand-primary hover:text-brand-dark dark:text-brand-primary dark:hover:text-brand-secondary transition-colors"
+                            className="font-bold text-brand-primary dark:text-[#d3a200] hover:text-brand-dark dark:hover:text-[#f9dc5c] transition-colors"
                         >
                             {isSignup ? "Sign In" : "Sign Up"}
                         </button>

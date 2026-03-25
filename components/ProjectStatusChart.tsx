@@ -1,12 +1,14 @@
 import React from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Project, ProjectStatus } from '../types';
+import { useAppContext } from '../AppContext';
 
 interface ProjectStatusChartProps {
   projects: Project[];
 }
 
 const ProjectStatusChart: React.FC<ProjectStatusChartProps> = ({ projects }) => {
+  const { theme } = useAppContext();
   const statusCounts = projects.reduce((acc, project) => {
     acc[project.status] = (acc[project.status] || 0) + 1;
     return acc;
@@ -54,13 +56,13 @@ const ProjectStatusChart: React.FC<ProjectStatusChartProps> = ({ projects }) => 
             <Tooltip
                 cursor={{ fill: 'rgba(200,200,200,0.1)' }}
                 contentStyle={{ 
-                    backgroundColor: 'rgba(17, 17, 17, 0.9)',
+                    backgroundColor: theme === 'dark' ? 'rgba(17, 17, 17, 0.9)' : 'rgba(255, 255, 255, 0.9)',
                     backdropFilter: 'blur(8px)',
-                    border: '1px solid #333',
+                    border: theme === 'dark' ? '1px solid #333' : '1px solid #e4e4e4',
                     borderRadius: '0.75rem',
-                    color: '#fff'
+                    color: theme === 'dark' ? '#fff' : '#111'
                 }}
-                itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase' }}
+                itemStyle={{ color: theme === 'dark' ? '#fff' : '#111', fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase' }}
                 labelStyle={{ display: 'none' }}
             />
             <Legend 

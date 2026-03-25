@@ -74,9 +74,9 @@ const NavItem: React.FC<NavItemProps> = ({
       }
       ${active
         ? mobile
-          ? "text-[var(--secondary-color)]"
-          : "bg-[var(--secondary-color)] text-black shadow-lg"
-        : "text-[var(--text-muted)] hover:text-white hover:bg-white/5"
+          ? "text-brand-primary"
+          : "bg-brand-primary text-black shadow-lg"
+        : "text-white/70 hover:text-white hover:bg-white/5"
       }
     `}
   >
@@ -131,7 +131,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   isMobileMenuOpen,
   setMobileMenuOpen,
 }) => {
-  const { currentUser } = useAppContext();
+  const { currentUser, theme } = useAppContext();
 
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const saved = localStorage.getItem("sidebar-collapsed");
@@ -164,14 +164,13 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      <style>{style}</style>
-
       {/* ================= MOBILE FOOTER NAV ================= */}
       <div className="
         md:hidden fixed bottom-0 left-0 right-0 z-[999]
-        bg-[var(--bg-surface)] border-t border-white/10
+        bg-brand-secondary border-t border-white/10
         backdrop-blur-lg h-16 flex justify-around px-1
         shadow-[0_-4px_15px_rgba(0,0,0,0.3)]
+        theme-transition
       ">
         {mobileMain.map(item => (
           <NavItem
@@ -201,10 +200,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div
           className={`
             absolute top-0 left-0 h-full w-72
-            bg-[var(--bg-surface)] shadow-2xl
+            bg-brand-secondary shadow-2xl
             transition-transform duration-300 ease-out
             ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
             flex flex-col z-[1001]
+            theme-transition
           `}
           onClick={e => e.stopPropagation()}
         >
@@ -218,7 +218,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
             
             <div className="text-center px-4">
-              <h1 className="text-[var(--secondary-color)] text-[10px] font-black uppercase tracking-[0.15em] leading-tight">Financial Control</h1>
+              <h1 className="text-brand-primary text-[10px] font-black uppercase tracking-[0.15em] leading-tight">Financial Control</h1>
               <p className="text-white/30 text-[8px] font-bold uppercase tracking-[0.25em] mt-0.5">Institutional Portal</p>
             </div>
 
@@ -256,9 +256,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div
         className={`
           hidden md:flex flex-col h-screen
-          bg-[var(--bg-surface)] border-r border-white/10
+          bg-brand-secondary border-r border-white/10
           transition-all duration-300 ease-in-out flex-shrink-0
           overflow-hidden
+          theme-transition
           ${isCollapsed ? "w-20" : "w-64"}
         `}
       >
@@ -277,7 +278,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
           {!isCollapsed && (
             <div className="text-center px-4 animate-fadeIn">
-              <h1 className="text-[var(--secondary-color)] text-[10px] font-black uppercase tracking-[0.15em] leading-tight">Financial Control</h1>
+              <h1 className="text-brand-primary text-[10px] font-black uppercase tracking-[0.15em] leading-tight">Financial Control</h1>
               <p className="text-white/30 text-[8px] font-bold uppercase tracking-[0.25em] mt-0.5">Institutional Portal</p>
             </div>
           )}
@@ -304,7 +305,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             className="
               w-full flex items-center justify-center
               rounded-xl p-2.5
-              text-[var(--text-muted)]
+              text-white/70
               hover:text-white hover:bg-white/10
               transition-all duration-200
             "

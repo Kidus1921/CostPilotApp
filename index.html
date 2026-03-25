@@ -24,24 +24,41 @@
       }
 
       :root {
-        --color-brand-primary: 101 8 27;      /* #65081b - Deep Wine (Primary) */
-        --color-brand-secondary: 211 162 0;   /* #d3a200 - Gold (Secondary/Active) */
-        --color-brand-tertiary: 196 16 52;    /* #c41034 - Crimson (Elevated) */
+        --bg-main: #f7f7f7;
+        --bg-panel: #ffffff;
+        --text-primary: #111111;
+        --text-secondary: #4a4a4a;
+        --border-color: #e4e4e4;
+        --brand-primary: #d3a200;
+        --brand-accent: #65081b;
+        
+        --color-brand-primary: 211 162 0;    /* #d3a200 - Gold */
+        --color-brand-secondary: 101 8 27;   /* #65081b - Burgundy */
+        --color-brand-tertiary: 196 16 52;    /* #c41034 - Crimson */
         --color-brand-dark: 249 220 92;       /* #f9dc5c - Light Gold */
-        --color-brand-primary-content: 255 255 255;
       }
       
       .dark {
-        --color-brand-primary: 211 162 0;      /* In dark mode, gold becomes primary */
-        --color-brand-primary-content: 101 8 27;
+        --bg-main: #111111;
+        --bg-panel: #1b1b1b;
+        --text-primary: #ffffff;
+        --text-secondary: #9ca3af;
+        --border-color: rgba(255, 255, 255, 0.1);
+        
+        --color-brand-primary: 211 162 0;
+        --color-brand-secondary: 101 8 27;
       }
 
       body {
         font-family: 'Nokia Pure Headline', ui-sans-serif, system-ui, sans-serif;
-        color: #000000;
         margin: 0;
+        transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
       }
       
+      .theme-transition, .theme-transition * {
+        transition: background-color 0.3s ease-in-out, border-color 0.3s ease-in-out, color 0.3s ease-in-out, fill 0.3s ease-in-out, stroke 0.3s ease-in-out !important;
+      }
+
       .sidebar-transition {
         transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
@@ -90,15 +107,14 @@
             },
             colors: {
               'brand-primary': 'rgb(var(--color-brand-primary) / <alpha-value>)', 
-              'brand-primary-content': 'rgb(var(--color-brand-primary-content) / <alpha-value>)',
               'brand-secondary': 'rgb(var(--color-brand-secondary) / <alpha-value>)',
               'brand-tertiary': 'rgb(var(--color-brand-tertiary) / <alpha-value>)',
               'brand-dark': 'rgb(var(--color-brand-dark) / <alpha-value>)',
-              'base-100': '#FFFFFF',
-              'base-200': '#F9F9F9',
-              'base-300': '#E5E7EB',
-              'base-content': '#000000',
-              'base-content-secondary': '#1a1a1a',
+              'base-100': 'var(--bg-panel)',
+              'base-200': 'var(--bg-main)',
+              'base-300': 'var(--border-color)',
+              'base-content': 'var(--text-primary)',
+              'base-content-secondary': 'var(--text-secondary)',
             }
           }
         }
